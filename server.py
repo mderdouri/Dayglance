@@ -22,6 +22,7 @@ STARTUP_SUPPORTED = sys.platform.startswith("linux")
 FILES = {
     "index.html": "text/html; charset=utf-8",
     "app.js": "text/javascript; charset=utf-8",
+    "air-quality.js": "text/javascript; charset=utf-8",
     "detail-hours.js": "text/javascript; charset=utf-8",
     "styles.css": "text/css; charset=utf-8",
     "manifest.webmanifest": "application/manifest+json; charset=utf-8",
@@ -212,4 +213,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 

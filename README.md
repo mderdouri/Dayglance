@@ -1,6 +1,6 @@
 # Dayglance
 
-Dayglance is a glanceable weather display for Raspberry Pi and other compact landscape screens. Its main view brings current conditions, a configurable temperature graph, and the next seven days together on one screen. Tap today or a forecast day for its 24-hour details, then swipe between saved places. Optional smooth city rotation lets it cycle on its own when showing more than one location.
+Dayglance is a glanceable weather display for Raspberry Pi and other compact landscape screens. Its main view brings current conditions, a modeled air-quality estimate, a configurable temperature graph, and the next seven days together on one screen. Tap today or a forecast day for its 24-hour details, then swipe between saved places. Optional smooth city rotation lets it cycle on its own when showing more than one location.
 
 It is designed for touch-first, keyboard-free use after setup: locations and display options can be managed on screen or copied in through `config.json`. Dayglance runs as a small local Python server with a browser interface; forecasts and location search are fetched from Open-Meteo. It does not require an account or an API key for personal, non-commercial use.
 
@@ -10,9 +10,13 @@ Dayglance is a personal weather dashboard for a wall or desk display such as a R
 
 The project is intentionally lightweight for Raspberry Pi hardware: a dependency-free Python standard-library server serves a static web app, and the browser requests weather data directly from Open-Meteo. The example installation uses a Raspberry Pi 3 B+ and an 800×480 landscape touchscreen. It also runs in a regular desktop browser.
 
-Dayglance currently provides forecasts and archived past-days data through Open-Meteo. It does not currently connect to personal weather stations or provide a rain-radar map; both remain possible future integrations rather than existing features.
+Dayglance provides weather forecasts and archived past-days data through Open-Meteo, plus a modeled U.S. Air Quality Index (AQI) and PM2.5 estimate from Open-Meteo's CAMS-based Air Quality API. Air-quality values are grid-model estimates, not readings from a local sensor. Dayglance does not currently connect to personal weather stations or provide a rain-radar map; both remain possible future integrations rather than existing features.
 
 ## Screenshots
+
+![Dayglance air-quality estimate preview at 800 by 480](docs/images/dayglance-air-quality-2026-10-15.png)
+
+_Preview uses sample API responses; live AQI and PM2.5 values vary by place and time._
 
 ![Dayglance first-launch location setup](docs/images/first-launch.png)
 
@@ -30,7 +34,7 @@ Dayglance currently provides forecasts and archived past-days data through Open-
 
 - Guided first-run setup with city, region, and ZIP/postal-code search and live location suggestions.
 - Forecast refresh becomes available once a location is configured; the first-run location screen has no refresh action.
-- Current conditions, feels-like temperature, sunrise/sunset, and a configurable temperature graph: next 24 hours, 7-day forecast, up to 16 forecast days, or archived weather data for the past 30 days.
+- Current conditions, feels-like temperature, sunrise/sunset, modeled U.S. AQI and PM2.5, and a configurable temperature graph: next 24 hours, 7-day forecast, up to 16 forecast days, or archived weather data for the past 30 days.
 - Hourly detail cards for today or a selected forecast day. Today starts at the current hour with no past hours; other days open centered on 8 AM. Swipe, drag, use the large arrow controls, or scroll the hourly strip.
 - Multiple saved locations with touch-friendly horizontal navigation, plus an edit control beside the city name.
 - Optional automatic sideways rotation through saved locations, with configurable 30-second, 1-minute, 5-minute, and 15-minute dwell times.
@@ -42,6 +46,8 @@ Dayglance currently provides forecasts and archived past-days data through Open-
 - No account or API key is needed for personal, non-commercial use of the free Open-Meteo endpoint.
 
 Dayglance keeps fetched weather in memory while it is running instead of writing a new forecast cache to browser storage on each refresh. Locations and settings persist across restarts; after a restart the app fetches a fresh forecast from Open-Meteo. The service worker only updates its app-shell cache when file contents change.
+
+When updating an existing installation, preserve its `config.json`, `device-settings.json`, browser profile, and app origin. See [Updating Dayglance](DEPLOYMENT.md) for the storage map and safe update procedure.
 
 ## Example hardware
 
@@ -86,7 +92,7 @@ Run the server configuration tests with `python3 -m unittest discover -s tests -
 
 ## Data source and usage
 
-Forecast and geocoding requests go directly from the browser to Open-Meteo. The interface credits Open-Meteo. Open-Meteo's free hosted API is for non-commercial use, is rate-limited, and has no uptime guarantee; review its current [pricing and usage terms](https://open-meteo.com/en/pricing) before using Dayglance commercially or at scale. The underlying weather datasets are provided under CC BY 4.0 and require attribution. Location search uses GeoNames data through Open-Meteo. See [third-party notices](THIRD_PARTY_NOTICES.md).
+Forecast, geocoding, archived-weather, and air-quality requests go directly from the browser to Open-Meteo. Air-quality values use the CAMS-based model and represent estimates, not local sensor measurements. The interface credits Open-Meteo and CAMS. Open-Meteo's free hosted API is for non-commercial use, is rate-limited, and has no uptime guarantee; review its current [pricing and usage terms](https://open-meteo.com/en/pricing) before using Dayglance commercially or at scale. The underlying weather and air-quality datasets are provided under CC BY 4.0 and require attribution. Location search uses GeoNames data through Open-Meteo. See [third-party notices](THIRD_PARTY_NOTICES.md).
 
 ## Project status
 
@@ -97,3 +103,4 @@ Touchscreen layout and interaction decisions are recorded in [DESIGN_NOTES.md](D
 ## License
 
 Dayglance's original software is released under the [MIT License](LICENSE). That license does not change the separate terms for remote weather or geocoding services and their datasets.
+

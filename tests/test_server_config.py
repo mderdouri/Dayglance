@@ -74,6 +74,12 @@ class DeviceSettingsConfigTests(unittest.TestCase):
         self.config_path.write_text(json.dumps({"startup": {"autoStart": True, "kiosk": False}}), encoding="utf-8")
         self.assertEqual(self.request(), (200, {"autoStart": True, "kiosk": False, "autostartInstalled": False, "startupSupported": True}))
 
+    def test_air_quality_helper_is_served_as_javascript(self):
+        with urlopen(self.base + "air-quality.js", timeout=3) as response:
+            self.assertEqual(response.status, 200)
+            self.assertIn("text/javascript", response.headers["Content-Type"])
+            self.assertIn("DayglanceAirQuality", response.read().decode("utf-8"))
+
     def test_device_file_overrides_config_defaults(self):
         self.config_path.write_text(json.dumps({"startup": {"autoStart": True, "kiosk": False}}), encoding="utf-8")
         self.settings_path.write_text(json.dumps({"autoStart": False, "kiosk": True}), encoding="utf-8")
@@ -137,4 +143,5 @@ class DeviceSettingsConfigTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
 

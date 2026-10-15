@@ -1,7 +1,11 @@
+Warning: truncated output (original token count: 13549)
+Total output lines: 681
+
 const STORE_KEY = 'weather-dashboard:v2';
 const CONFIG_URL = './config.json';
 const API = 'https://api.open-meteo.com/v1/forecast';
 const GEOCODE_API = 'https://geocoding-api.open-meteo.com/v1/search';
+const AIR_QUALITY_API = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 const FALLBACK_CONFIG = {defaultLocation:null,locations:[]};
 const hourlyWindow = window.DayglanceHourlyWindow;
 const DEFAULT_PREFERENCES = {returnAfterSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,showBumpers:true,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30};
@@ -205,6 +209,18 @@ function makeForecastUrl(location){
   const params=new URLSearchParams({latitude:location.latitude,longitude:location.longitude,current:'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl,visibility,uv_index',hourly:'temperature_2m,apparent_temperature,precipitation_probability,weather_code',daily:'weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max,wind_speed_10m_max',temperature_unit:preferences.temperatureUnit,wind_speed_unit:metric?'kmh':'mph',precipitation_unit:metric?'mm':'inch',timezone:'auto',forecast_days:preferences.temperatureGraphRange==='forecast16'?'16':'7'});
   return `${API}?${params}`;
 }
+function makeAirQualityUrl(location){
+  const params=new URLSearchParams({latitude:location.latitude,longitude:location.longitude,current:'us_aqi,pm2_5',timezone:'auto'});
+  return `${AIR_QUALITY_API}?${params}`;
+}
+async function fetchAirQuality(location){
+  try{
+    const response=await fetch(makeAirQualityUrl(location),{cache:'no-store'});
+    if(!response.ok)return null;
+    const data=await response.json();
+    return data.current||null;
+  }catch{return null}
+}
 async function resolveLocation(area){
   if(Number.isFinite(area.latitude)&&Number.isFinite(area.longitude))return area;
   const cached=saved.resolved[area.id];if(cached)return {...area,...cached};
@@ -222,10 +238,11 @@ async function resolveLocation(area){
 }
 async function fetchForecast(area){
   const location=await resolveLocation(area);
-  const response=await fetch(makeForecastUrl(location),{cache:'no-store'});
+  const [response,airQuality]=await Promise.all([fetch(makeForecastUrl(location),{cache:'no-store'}),fetchAirQuality(location)]);
   if(!response.ok)throw new Error('The forecast service is temporarily unavailable. Please try again.');
   const data=await response.json();
   if(!data.current||!data.daily||!data.hourly)throw new Error('The forecast service returned incomplete weather data.');
+  data.airQuality=airQuality;
   saved.forecasts[area.id]={data,fetchedAt:Date.now(),temperatureUnit:preferences.temperatureUnit,measurementSystem:preferences.measurementSystem};save();
   currentForecast=data;render(data,location);setStatus(`Updated ${new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(new Date())}`);
 }
@@ -246,158 +263,7 @@ function render(data,location){
   const current=data.current,daily=data.daily,hourly=data.hourly;
   const currentKind=weatherType(current.weather_code,Boolean(current.is_day));
   text('place-name',location.name);text('today-date',new Intl.DateTimeFormat(undefined,{weekday:'long',month:'long',day:'numeric'}).format(new Date(`${daily.time[0]}T12:00:00`)));
-  $('#current-icon').innerHTML=currentKind.icon;text('current-temperature',safeNumber(current.temperature_2m));$('#current-temperature-unit').textContent=temperatureSuffix();text('current-summary',currentKind.label);text('feels-like',`${safeNumber(current.apparent_temperature)}${temperatureSuffix()}`);
-  text('sunrise',daily.sunrise?.[0]?localHour(daily.sunrise[0]):'—');text('sunset',daily.sunset?.[0]?localHour(daily.sunset[0]):'—');
-  const metric=preferences.measurementSystem==='metric';
-  text('wind',`${safeNumber(current.wind_speed_10m)} ${metric?'km/h':'mph'} ${compass(current.wind_direction_10m)}`);text('humidity',`${safeNumber(current.relative_humidity_2m)}%`);
-  text('pressure',Number.isFinite(Number(current.pressure_msl))?metric?`${safeNumber(current.pressure_msl)} hPa`:`${(current.pressure_msl*0.029529983).toFixed(2)} inHg`:'—');text('uv',safeNumber(current.uv_index,1));
-  text('visibility',Number.isFinite(Number(current.visibility))?metric?`${(current.visibility/1000).toFixed(1)} km`:`${(current.visibility/1609.344).toFixed(1)} mi`:'—');
-  renderTrend(data,location);renderDays(daily);
-}
-function renderTrend(data,location){
-  const holder=$('#trend-chart'),range=preferences.temperatureGraphRange;
-  const titles={day:'Next 24 hours',week:'7-day forecast',forecast16:'16-day outlook',history30:'Past 30 days'};
-  text('trend-title',titles[range]);text('trend-legend-key',range==='day'?'Hourly temperature':'Daily high / low');
-  if(range==='history30'){renderHistoricalTrend(location);return}
-  if(range==='day'){
-  const hourly=data.hourly,start=Math.max(0,hourly.time.findIndex(time=>time>=data.current.time));
-  const temperatures=hourly.temperature_2m.slice(start,start+24);
-  if(temperatures.length<2){holder.replaceChildren();return}
-  const width=1000,height=112,left=8,right=992,top=12,bottom=82;
-  const low=Math.min(...temperatures)-2,high=Math.max(...temperatures)+2,spread=Math.max(1,high-low);
-  const pts=temperatures.map((value,index)=>[left+index*(right-left)/(temperatures.length-1),bottom-(value-low)/spread*(bottom-top)]);
-  const line=pts.map((point,index)=>`${index?'L':'M'}${point[0].toFixed(1)} ${point[1].toFixed(1)}`).join(' ');
-  const area=`${line} L${right} ${bottom+9} L${left} ${bottom+9} Z`;
-  const labels=[0,6,12,18].map(offset=>{const i=Math.min(start+offset,hourly.time.length-1);const x=left+Math.min(offset,temperatures.length-1)*(right-left)/(temperatures.length-1);return `<text class="trend-label" x="${x}" y="106" text-anchor="middle">${localHour(hourly.time[i])}</text>`}).join('');
-  const dots=pts.filter((_,i)=>i%6===0).map(([x,y])=>`<circle cx="${x}" cy="${y}" r="3" fill="#f9fbfa" stroke="#4b98a9" stroke-width="2"/>`).join('');
-  holder.innerHTML=`<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Hourly temperature trend for the next 24 hours"><defs><linearGradient id="trend-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#a9d5df" stop-opacity=".68"/><stop offset="1" stop-color="#dcecef" stop-opacity=".18"/></linearGradient></defs><path d="${area}" fill="url(#trend-fill)"/><path d="${line}" fill="none" stroke="#4b98a9" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/>${dots}${labels}</svg>`;
-  return;
-  }
-  renderDailyTrend(data.daily,range==='week'?7:16,range==='week'?'7-day forecast':'16-day outlook');
-}
-function renderDailyTrend(daily,count,label){
-  const dates=daily.time.slice(0,count),highs=daily.temperature_2m_max.slice(0,count),lows=daily.temperature_2m_min.slice(0,count);
-  renderRangeTrend(dates,highs,lows,label,false);
-}
-function renderRangeTrend(dates,highs,lows,label,isHistory){
-  const holder=$('#trend-chart');
-  if(dates.length<2||highs.length!==dates.length||lows.length!==dates.length){holder.textContent='Temperature history is not available yet.';return}
-  const width=1000,height=112,left=18,right=982,top=12,bottom=79;
-  const values=[...highs,...lows].map(Number).filter(Number.isFinite),low=Math.min(...values)-2,high=Math.max(...values)+2,spread=Math.max(1,high-low);
-  const x=index=>left+index*(right-left)/(dates.length-1),y=value=>bottom-(Number(value)-low)/spread*(bottom-top);
-  const upper=highs.map((value,index)=>[x(index),y(value)]),lower=lows.map((value,index)=>[x(index),y(value)]);
-  const highLine=upper.map(([px,py],index)=>`${index?'L':'M'}${px.toFixed(1)} ${py.toFixed(1)}`).join(' ');
-  const lowLine=lower.map(([px,py],index)=>`${index?'L':'M'}${px.toFixed(1)} ${py.toFixed(1)}`).join(' ');
-  const band=`${highLine} ${lower.slice().reverse().map(([px,py])=>`L${px.toFixed(1)} ${py.toFixed(1)}`).join(' ')} Z`;
-  const stride=dates.length<=7?2:dates.length<=16?3:5;
-  const labels=dates.map((date,index)=>index%stride===0||index===dates.length-1?`<text class="trend-label" x="${x(index).toFixed(1)}" y="106" text-anchor="middle">${formatDay(date,isHistory?{month:'numeric',day:'numeric'}:{weekday:'short'})}</text>`:'').join('');
-  const aria=isHistory?'Daily high and low temperatures for the past 30 days':`Daily high and low temperatures for ${label}`;
-  holder.innerHTML=`<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${aria}"><path d="${band}" fill="#a9d5df" fill-opacity=".38"/><path d="${highLine}" fill="none" stroke="#d48d45" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/><path d="${lowLine}" fill="none" stroke="#4b98a9" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/>${labels}</svg>`;
-}
-async function renderHistoricalTrend(location){
-  const holder=$('#trend-chart'),generation=++historyRequestSequence;
-  const cached=saved.histories[location.id];
-  if(cached?.data?.daily){
-    const data=convertHistory(cached);renderRangeTrend(data.time,data.high,data.low,'past 30 days',true);
-    if(cached.temperatureUnit===preferences.temperatureUnit&&Date.now()-cached.fetchedAt<6*60*60*1000)return;
-  }
-  try{
-    const params=new URLSearchParams({latitude:location.latitude,longitude:location.longitude,daily:'temperature_2m_max,temperature_2m_min',temperature_unit:preferences.temperatureUnit,timezone:'auto',past_days:'29',forecast_days:'1'});
-    const response=await fetch(`${API}?${params}`,{cache:'no-store'});
-    if(!response.ok)throw new Error('History is temporarily unavailable.');
-    const result=await response.json();
-    if(generation!==historyRequestSequence||locations[currentIndex]?.id!==location.id||preferences.temperatureGraphRange!=='history30')return;
-    if(!result.daily?.time||result.daily.time.length<2)throw new Error('The provider returned incomplete history.');
-    const entry={data:{daily:result.daily},fetchedAt:Date.now(),temperatureUnit:preferences.temperatureUnit};saved.histories[location.id]=entry;save();
-    renderRangeTrend(result.daily.time,result.daily.temperature_2m_max,result.daily.temperature_2m_min,'past 30 days',true);
-  }catch(error){if(generation===historyRequestSequence){if(!cached)holder.textContent=error.message}}
-}
-let historyRequestSequence=0;
-function convertHistory(cached){
-  const daily=cached.data.daily,convert=value=>cached.temperatureUnit===preferences.temperatureUnit?value:preferences.temperatureUnit==='celsius'?(value-32)*5/9:value*9/5+32;
-  return {time:daily.time,high:daily.temperature_2m_max.map(convert),low:daily.temperature_2m_min.map(convert)};
-}
-function renderDays(daily){
-  const list=$('#day-list');list.replaceChildren();
-  daily.time.slice(0,7).forEach((date,index)=>{
-    const kind=weatherType(daily.weather_code[index]);
-    const button=document.createElement('button');button.type='button';button.className=`day-card${index===0?' today':''}`;button.setAttribute('aria-label',`${index===0?'Today':formatDay(date,{weekday:'long'})}, ${kind.label}, high ${Math.round(daily.temperature_2m_max[index])}${temperatureSuffix()}, low ${Math.round(daily.temperature_2m_min[index])}${temperatureSuffix()}. Show hourly details.`);
-    button.innerHTML=`<span class="day-name">${index===0?'Today':formatDay(date)}</span><span class="day-icon" aria-hidden="true">${kind.icon}</span><span class="day-condition">${kind.label}</span><span class="day-temps">${Math.round(daily.temperature_2m_max[index])}${temperatureSuffix()} <span>${Math.round(daily.temperature_2m_min[index])}${temperatureSuffix()}</span></span>`;
-    button.addEventListener('click',()=>showDetails(index));list.append(button);
-  });
-}
-function showDetails(dayIndex){
-  if(!currentForecast)return;
-  pauseAutoScroll();
-  const data=currentForecast,day=data.daily.time[dayIndex],daily=data.daily,hourly=data.hourly,kind=weatherType(daily.weather_code[dayIndex]);
-  text('details-date',dayIndex===0?'Today':formatDay(day,{weekday:'long',month:'long',day:'numeric'}));
-  text('details-summary',`${kind.label} · High ${Math.round(daily.temperature_2m_max[dayIndex])}${temperatureSuffix()} · Low ${Math.round(daily.temperature_2m_min[dayIndex])}${temperatureSuffix()} · Rain chance ${safeNumber(daily.precipitation_probability_max[dayIndex])}%`);
-  text('details-daylight',`Sunrise ${localHour(daily.sunrise[dayIndex])} · Sunset ${localHour(daily.sunset[dayIndex])} · UV ${safeNumber(daily.uv_index_max[dayIndex],1)}`);
-  const currentHour=data.current.time.slice(0,13);
-  const windowRange=hourlyWindow.getHourlyWindow(hourly.time,day,dayIndex===0,currentHour);
-  if(!windowRange)return;
-  const {start,end,initialIndex,includesTomorrow}=windowRange;
-  const list=$('#hourly-list');list.replaceChildren();
-  hourly.time.slice(start,end).forEach((time,index)=>{
-    const i=start+index,weather=weatherType(hourly.weather_code[i],true),card=document.createElement('div');card.className='hour-card';
-    const hourLabel=time.slice(0,10)!==day?`Tomorrow ${localHour(time)}`:dayIndex===0&&time.slice(0,13)===currentHour?'Now':localHour(time);
-    card.innerHTML=`<span class="hour-time">${hourLabel}</span><span class="hour-icon" aria-hidden="true">${weather.icon}</span><span class="hour-temp">${Math.round(hourly.temperature_2m[i])}${temperatureSuffix()}</span><span class="hour-rain">Rain ${safeNumber(hourly.precipitation_probability[i])}%</span>`;list.append(card);
-  });
-  text('hourly-hint',dayIndex===0?(includesTomorrow?'Starts at the current hour and includes a few early hours tomorrow.':'Starts at the current hour; swipe or drag to see the rest of today.'):'Starts at 8 AM; swipe or drag to explore the full day.');
-  details.hidden=false;
-  requestAnimationFrame(()=>{
-    const target=list.children[Math.max(0,initialIndex)];
-    const firstCard=list.firstElementChild;
-    const centeredLeft=target&&firstCard?target.offsetLeft-firstCard.offsetLeft-(list.clientWidth-target.clientWidth)/2:0;
-    list.scrollTo({left:Math.max(0,centeredLeft),top:0,behavior:'instant'});updateHourlyBoundaries();
-  });
-  resetDetailTimer();
-}
-function resetDetailTimer(){
-  if(details.hidden||detailPointers.size||detailScrollTimer)return;
-  clearInterval(countdownTimer);clearTimeout(detailTimer);
-  $('#return-idle').hidden=false;$('#return-paused').hidden=true;
-  const duration=Number(preferences.returnAfterSeconds)*1000;
-  if(!duration){$('#return-idle').hidden=true;$('#return-paused').hidden=true;$('#return-stays-open').hidden=false;$('#countdown-bar').parentElement.hidden=true;return}
-  $('#return-idle').hidden=false;$('#return-stays-open').hidden=true;$('#countdown-bar').parentElement.hidden=false;
-  const end=Date.now()+duration;
-  const tick=()=>{const left=Math.max(0,end-Date.now());text('countdown',Math.ceil(left/1000));$('#countdown-bar').style.transform=`scaleX(${left/duration})`;if(left===0)closeDetails()};
-  tick();countdownTimer=setInterval(tick,200);detailTimer=setTimeout(closeDetails,duration);
-}
-function pauseDetailTimer(){
-  if(details.hidden)return;
-  clearInterval(countdownTimer);clearTimeout(detailTimer);
-  $('#return-idle').hidden=true;$('#return-stays-open').hidden=true;$('#return-paused').hidden=false;$('#countdown-bar').parentElement.hidden=true;
-}
-function detailScrollActivity(){
-  if(details.hidden)return;
-  pauseDetailTimer();clearTimeout(detailScrollTimer);
-  detailScrollTimer=setTimeout(()=>{detailScrollTimer=null;resetDetailTimer()},250);
-}
-function closeDetails(){
-  clearInterval(countdownTimer);clearTimeout(detailTimer);clearTimeout(detailScrollTimer);detailScrollTimer=null;detailPointers.clear();
-  const list=$('#hourly-list');list.scrollTo({left:list.scrollLeft,behavior:'instant'});
-  details.hidden=true;
-  scheduleAutoScroll();
-}
-function locationLabel(item){return [item.name,item.admin1,item.country].filter((part,index,array)=>part&&array.indexOf(part)===index).join(', ')}
-function escapeHtml(value){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
-function openEditor(mode='add',{locationId=null,returnToSettings=false}={}){
-  pauseAutoScroll();
-  editorMode=mode;editingId=mode==='edit'?(locationId||locations[currentIndex]?.id):null;selectedResult=null;settingsReturn=returnToSettings;
-  const editingLocation=locations.find(area=>area.id===editingId)||locations[currentIndex];
-  closeDetails();settingsScreen.hidden=true;dashboard.hidden=true;addPage.hidden=true;setup.hidden=false;
-  text('setup-title',mode==='initial'?'Welcome to Dayglance':mode==='edit'?'Change this location':'Add a location');
-  text('setup-copy','Enter a city or ZIP / postal code. Choose a country to narrow the matches, then tap your location.');
-  text('search-submit',mode==='initial'?'Start Dayglance':mode==='edit'?'Save location':'Add location');
-  $('#city-query').value=mode==='edit'?(editingLocation.postalCode||editingLocation.query||editingLocation.name.split(',')[0]):'';
-  $('#country-code').value=mode==='edit'?(editingLocation.countryCode||''):'';
-  $('#search-results').replaceChildren();setupError.textContent='';$('#search-submit').disabled=true;$('#cancel-location').hidden=mode==='initial';
-  $('#city-query').focus({preventScroll:true});
-  pauseAutoScroll();
-  if(mode==='edit')scheduleSearch($('#city-query').value);
-}
-function closeEditor(){if(editorMode==='initial')return;setup.hidden=true;setupError.textContent='';if(settingsReturn){settingsReturn=false;settingsScreen.hidden=false;renderSettings()}else if(showingAddPage)addPage.hidden=false;else{dashboard.hidden=false;scheduleAutoScroll()}}
+  $('#current-icon').innerHTML=currentKind.icon;text('current-temperature',safeNumber(current.temperature_2m));$('#current-temperature-unit').textContent=temperatureSuffix();text('current-summary',currentKind.label);text('feels-like',`${safeNumber(current.apparent_temperature)}${temperatureSuf…3549 tokens truncated…turn=false;settingsScreen.hidden=false;renderSettings()}else if(showingAddPage)addPage.hidden=false;else{dashboard.hidden=false;scheduleAutoScroll()}}
 function scheduleSearch(query){
   clearTimeout(searchTimer);searchSequence++;selectedResult=null;$('#search-submit').disabled=true;setupError.textContent='';
   const host=$('#search-results');host.replaceChildren();
@@ -660,4 +526,5 @@ const countryCodes='AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE 
 countryCodes.map(code=>({code,name:regionNames.of(code)})).sort((a,b)=>a.name.localeCompare(b.name)).forEach(({code,name})=>$('#country-code').add(new Option(name,code)));
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 initialize();
+
 
