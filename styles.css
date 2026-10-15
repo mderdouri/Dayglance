@@ -31,4 +31,3 @@
 .startup-setting-row>span{display:grid;gap:3px}.startup-state{color:#819198;font-size:10px}.startup-toggle{min-width:76px}.startup-toggle[aria-pressed="true"]{border-color:#a9cec0;background:#edf8f1;color:#28704a}.startup-toggle:disabled{opacity:.55;cursor:not-allowed}
 .launch-settings .startup-toggle{margin-top:0}
 
-

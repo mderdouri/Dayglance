@@ -26,4 +26,3 @@ test('reports an unavailable estimate for absent or invalid AQI', () => {
     });
   }
 });
-

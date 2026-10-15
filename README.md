@@ -103,4 +103,3 @@ Touchscreen layout and interaction decisions are recorded in [DESIGN_NOTES.md](D
 ## License
 
 Dayglance's original software is released under the [MIT License](LICENSE). That license does not change the separate terms for remote weather or geocoding services and their datasets.
-

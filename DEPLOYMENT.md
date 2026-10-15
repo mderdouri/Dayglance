@@ -24,4 +24,3 @@ Do not put a user's location configuration in Git or in an unencrypted backup. B
 For an existing kiosk installation, keep its current application directory, local URL and port, Chromium profile, `config.json`, and `device-settings.json`. Replace only the explicitly listed application assets and restart the existing user services. The actual paths and profile name vary by device.
 
 The current server stores the two JSON files inside the application directory. A future improvement would move Pi-local configuration to a stable XDG config directory outside versioned releases, with a one-time migration and backward-compatible fallback. Until that migration exists, an in-place allowlist update is required to protect file-based settings.
-
