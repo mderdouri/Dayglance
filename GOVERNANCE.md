@@ -41,7 +41,7 @@ For a repository owned by a personal account, GitHub provides the owner and coll
 
 The public repository has Issues enabled and Discussions disabled. Its default branch is `main`. The GitHub Actions workflow (`CI / Verify`) is published. An active repository ruleset named **Protect main — PR and CI** targets the default branch. It requires changes to arrive through a pull request, requires `CI / Verify` to pass while the branch is up to date with `main`, requires review conversations to be resolved, blocks force pushes, and prevents deletion of the protected branch. Its standard required review count is zero; it also enables GitHub's extra-approval rule for unattributed changes. No bypass actors are configured.
 
-The collaborator list and GitHub's separate review-limit setting remain unverified. Review limits are not recommended yet: on a personal public repository, limiting reviews to people with repository access means inviting those reviewers as collaborators with write access. Keep public reviews open while the project has no trusted second reviewer; an approval is not currently a merge gate. Revisit this if a trusted maintainer is added.
+The collaborator list and GitHub's separate review-limit setting remain unverified. Review limits are not recommended yet: on a personal public repository, limiting reviews to people with repository access means inviting those reviewers as collaborators with write access. Keep public reviews open while the project has no trusted second reviewer; the ordinary required-approval count is zero, with the extra-approval rule for unattributed changes described above. Revisit this if a trusted maintainer is added.
 
 ## Current safeguards and remaining recommendations
 
