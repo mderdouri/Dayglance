@@ -39,7 +39,7 @@ For a repository owned by a personal account, GitHub provides the owner and coll
 
 ## Current GitHub enforcement
 
-The public repository has Issues enabled and Discussions disabled. Its default branch is `main`. This working tree now includes a GitHub Actions workflow (`CI / Verify`) and a pull-request template; these become active once published. The available repository-scoped GitHub connection can read public repository data but does not have repository-administration access, so it cannot configure branch protection or review limits. The remote `main` branch remains unprotected until an owner applies the rules below in GitHub settings.
+The public repository has Issues enabled and Discussions disabled. Its default branch is `main`. The GitHub Actions workflow (`CI / Verify`) is published and has passed on the project update pull request. The repository-scoped GitHub connection can create repository content, branches, and pull requests, but it cannot configure repository-administration settings such as branch protection or review limits. The remote `main` branch remains unprotected until an owner applies the rules below in GitHub settings.
 
 The collaborator list and review-limit setting remain unverified. Review limits are not recommended yet: on a personal public repository, limiting reviews to people with repository access means inviting those reviewers as collaborators with write access. Keep public reviews open while the project has no trusted second reviewer; an approval is not currently a merge gate. Revisit this if a trusted maintainer is added.
 
