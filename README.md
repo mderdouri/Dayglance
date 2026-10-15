@@ -18,6 +18,10 @@ Dayglance currently provides forecasts and archived past-days data through Open-
 
 ![Dayglance hourly forecast details with swipeable cards and optional arrow controls](docs/images/hourly-view.jpg)
 
+![Dayglance Today detail beginning at the current hour](docs/images/dayglance-hourly-today-20261015.png)
+
+![Dayglance Settings with Locations at the top and clear startup state](docs/images/dayglance-settings-location-first-20261015.png)
+
 ![Dayglance settings with vertically swipeable content and a pinned close button](docs/images/settings-touch-scroll.jpg)
 
 ![Live Dayglance dashboard on the DevPi touchscreen, captured October 15, 2026](docs/images/dayglance-devpi-20261015.png)
@@ -27,7 +31,7 @@ Dayglance currently provides forecasts and archived past-days data through Open-
 - Guided first-run setup with city, region, and ZIP/postal-code search and live location suggestions.
 - Forecast refresh becomes available once a location is configured; the first-run location screen has no refresh action.
 - Current conditions, feels-like temperature, sunrise/sunset, and a configurable temperature graph: next 24 hours, 7-day forecast, up to 16 forecast days, or archived weather data for the past 30 days.
-- Hourly detail cards for today or a selected forecast day. Swipe, drag, use the large arrow controls, or scroll the hourly strip.
+- Hourly detail cards for today or a selected forecast day. Today starts at the current hour with no past hours; other days open centered on 8 AM. Swipe, drag, use the large arrow controls, or scroll the hourly strip.
 - Multiple saved locations with touch-friendly horizontal navigation, plus an edit control beside the city name.
 - Optional automatic sideways rotation through saved locations, with configurable 30-second, 1-minute, 5-minute, and 15-minute dwell times.
 - A settings menu and copyable `config.json` for locations, units, clock format, refresh interval, graph period, the hourly-view return timer, and optional hourly navigation buttons.

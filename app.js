@@ -3,6 +3,7 @@ const CONFIG_URL = './config.json';
 const API = 'https://api.open-meteo.com/v1/forecast';
 const GEOCODE_API = 'https://geocoding-api.open-meteo.com/v1/search';
 const FALLBACK_CONFIG = {defaultLocation:null,locations:[]};
+const hourlyWindow = window.DayglanceHourlyWindow;
 const DEFAULT_PREFERENCES = {returnAfterSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,showBumpers:true,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30};
 const $ = selector => document.querySelector(selector);
 const setup = $('#setup');
@@ -14,7 +15,7 @@ const loading = $('#loading');
 const setupError = $('#setup-error');
 let saved = {userLocations:[],overrides:{},forecasts:{},histories:{},resolved:{},preferences:{}};
 let preferences = {...DEFAULT_PREFERENCES};
-let deviceSettings = {autoStart:false,kiosk:true,autostartInstalled:false};
+let deviceSettings = {autoStart:false,kiosk:true,autostartInstalled:false,startupSupported:false};
 let configuredLocations = [];
 let locations = [];
 let currentIndex = 0;
@@ -111,26 +112,39 @@ async function loadDeviceSettings(){
     if(!response.ok)throw new Error('Device startup settings are not available from this server.');
     const data=await response.json();
     const localPage=['localhost','127.0.0.1','::1'].includes(location.hostname);
-    deviceSettings={autoStart:Boolean(data.autoStart),kiosk:data.kiosk!==false,autostartInstalled:Boolean(data.autostartInstalled)&&localPage};
-    $('#setting-auto-start').disabled=$('#setting-kiosk').disabled=!deviceSettings.autostartInstalled;
-    $('#setting-auto-start').checked=deviceSettings.autoStart;
+    deviceSettings={autoStart:Boolean(data.autoStart),kiosk:data.kiosk!==false,autostartInstalled:Boolean(data.autostartInstalled),startupSupported:Boolean(data.startupSupported)&&localPage};
+    $('#setting-auto-start').disabled=$('#setting-kiosk').disabled=!deviceSettings.startupSupported;
+    renderStartupControl();
     $('#setting-kiosk').checked=deviceSettings.kiosk;
-    text('startup-status',deviceSettings.autostartInstalled?'Startup options are saved on this Pi and apply the next time the Dayglance launcher runs.':'Run install-autostart.sh once on the Pi, then open Dayglance at http://localhost:8080 to change startup settings.');
+    text('startup-status',deviceSettings.startupSupported?'Enabling auto-start installs the desktop login hook automatically. Changes apply at the next desktop login.':'Startup controls are available from Dayglance running locally on a Linux desktop or Raspberry Pi.');
   }catch(error){
     $('#setting-auto-start').disabled=true;$('#setting-kiosk').disabled=true;
-    text('startup-status','Device startup options need the Dayglance server on the Pi and its one-time desktop startup setup.');
+    renderStartupControl();
+    text('startup-status','Could not load device startup settings. Use Dayglance on the Pi itself.');
   }
 }
-async function saveDeviceSettings(){
+function renderStartupControl(){
+  const button=$('#setting-auto-start');
+  const enabled=deviceSettings.autoStart;
+  button.textContent=enabled?'Disable':'Enable';
+  button.setAttribute('aria-pressed',String(enabled));
+  text('startup-state',enabled?'Currently enabled':'Currently disabled');
+}
+async function saveDeviceSettings(autoStartValue=deviceSettings.autoStart){
   const status=$('#settings-status');
+  const startupButton=$('#setting-auto-start');
+  startupButton.disabled=true;
   try{
-    const response=await fetch('./api/device-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({autoStart:$('#setting-auto-start').checked,kiosk:$('#setting-kiosk').checked})});
+    const response=await fetch('./api/device-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({autoStart:autoStartValue,kiosk:$('#setting-kiosk').checked})});
     if(!response.ok)throw new Error('Could not save Pi startup settings. Use Dayglance on the Pi itself.');
     deviceSettings={...deviceSettings,...await response.json()};
+    renderStartupControl();
     status.textContent='Saved. Startup options apply the next time the Dayglance launcher runs.';
   }catch(error){
-    $('#setting-auto-start').checked=deviceSettings.autoStart;$('#setting-kiosk').checked=deviceSettings.kiosk;
+    renderStartupControl();$('#setting-kiosk').checked=deviceSettings.kiosk;
     status.textContent=error.message;
+  }finally{
+    startupButton.disabled=!deviceSettings.startupSupported;
   }
 }
 function refreshAfterResume(){
@@ -319,14 +333,25 @@ function showDetails(dayIndex){
   text('details-date',dayIndex===0?'Today':formatDay(day,{weekday:'long',month:'long',day:'numeric'}));
   text('details-summary',`${kind.label} · High ${Math.round(daily.temperature_2m_max[dayIndex])}${temperatureSuffix()} · Low ${Math.round(daily.temperature_2m_min[dayIndex])}${temperatureSuffix()} · Rain chance ${safeNumber(daily.precipitation_probability_max[dayIndex])}%`);
   text('details-daylight',`Sunrise ${localHour(daily.sunrise[dayIndex])} · Sunset ${localHour(daily.sunset[dayIndex])} · UV ${safeNumber(daily.uv_index_max[dayIndex],1)}`);
-  const first=hourly.time.findIndex(time=>time.slice(0,10)===day);
-  const start=Math.max(0,first),currentHour=data.current.time.slice(0,13);
+  const currentHour=data.current.time.slice(0,13);
+  const windowRange=hourlyWindow.getHourlyWindow(hourly.time,day,dayIndex===0,currentHour);
+  if(!windowRange)return;
+  const {start,end,initialIndex,includesTomorrow}=windowRange;
   const list=$('#hourly-list');list.replaceChildren();
-  hourly.time.slice(start,start+24).forEach((time,index)=>{
+  hourly.time.slice(start,end).forEach((time,index)=>{
     const i=start+index,weather=weatherType(hourly.weather_code[i],true),card=document.createElement('div');card.className='hour-card';
-    card.innerHTML=`<span class="hour-time">${dayIndex===0&&time.slice(0,13)===currentHour?'Now':localHour(time)}</span><span class="hour-icon" aria-hidden="true">${weather.icon}</span><span class="hour-temp">${Math.round(hourly.temperature_2m[i])}${temperatureSuffix()}</span><span class="hour-rain">Rain ${safeNumber(hourly.precipitation_probability[i])}%</span>`;list.append(card);
+    const hourLabel=time.slice(0,10)!==day?`Tomorrow ${localHour(time)}`:dayIndex===0&&time.slice(0,13)===currentHour?'Now':localHour(time);
+    card.innerHTML=`<span class="hour-time">${hourLabel}</span><span class="hour-icon" aria-hidden="true">${weather.icon}</span><span class="hour-temp">${Math.round(hourly.temperature_2m[i])}${temperatureSuffix()}</span><span class="hour-rain">Rain ${safeNumber(hourly.precipitation_probability[i])}%</span>`;list.append(card);
   });
-  details.hidden=false;list.scrollTo({left:0,top:0,behavior:'instant'});updateHourlyBoundaries();resetDetailTimer();
+  text('hourly-hint',dayIndex===0?(includesTomorrow?'Starts at the current hour and includes a few early hours tomorrow.':'Starts at the current hour; swipe or drag to see the rest of today.'):'Starts at 8 AM; swipe or drag to explore the full day.');
+  details.hidden=false;
+  requestAnimationFrame(()=>{
+    const target=list.children[Math.max(0,initialIndex)];
+    const firstCard=list.firstElementChild;
+    const centeredLeft=target&&firstCard?target.offsetLeft-firstCard.offsetLeft-(list.clientWidth-target.clientWidth)/2:0;
+    list.scrollTo({left:Math.max(0,centeredLeft),top:0,behavior:'instant'});updateHourlyBoundaries();
+  });
+  resetDetailTimer();
 }
 function resetDetailTimer(){
   if(details.hidden||detailPointers.size||detailScrollTimer)return;
@@ -576,8 +601,8 @@ $('#setting-graph-range').addEventListener('change',event=>changeGraphRange(even
 $('#setting-auto-scroll').addEventListener('change',event=>changePreference('autoScrollLocations',event.target.checked));
 $('#setting-auto-scroll-interval').addEventListener('change',event=>changePreference('autoScrollIntervalSeconds',Number(event.target.value)));
 $('#setting-bumpers').addEventListener('change',event=>changePreference('showBumpers',event.target.checked));
-$('#setting-auto-start').addEventListener('change',saveDeviceSettings);
-$('#setting-kiosk').addEventListener('change',saveDeviceSettings);
+$('#setting-auto-start').addEventListener('click',()=>saveDeviceSettings(!deviceSettings.autoStart));
+$('#setting-kiosk').addEventListener('change',()=>saveDeviceSettings(deviceSettings.autoStart));
 $('#fullscreen-now').addEventListener('click',toggleFullscreen);
 // Hold the view open throughout a touch/drag and scrolling momentum, then start a fresh idle period.
 details.addEventListener('pointerdown',event=>{detailPointers.add(event.pointerId);pauseDetailTimer()},{passive:true});
@@ -635,3 +660,4 @@ const countryCodes='AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE 
 countryCodes.map(code=>({code,name:regionNames.of(code)})).sort((a,b)=>a.name.localeCompare(b.name)).forEach(({code,name})=>$('#country-code').add(new Option(name,code)));
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 initialize();
+

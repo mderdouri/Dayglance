@@ -25,3 +25,6 @@
 .settings-heading{position:sticky;top:0;z-index:2;background:#f9fbfa;padding-top:6px;padding-bottom:6px}
 .settings-screen.settings-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
 .hour-scroll-button:disabled{opacity:.35;cursor:default;pointer-events:none}.hourly-navigation .hourly-list{overscroll-behavior-x:none}
+.startup-setting-row>span{display:grid;gap:3px}.startup-state{color:#819198;font-size:10px}.startup-toggle{min-width:76px}.startup-toggle[aria-pressed="true"]{border-color:#a9cec0;background:#edf8f1;color:#28704a}.startup-toggle:disabled{opacity:.55;cursor:not-allowed}
+.launch-settings .startup-toggle{margin-top:0}
+
