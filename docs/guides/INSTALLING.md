@@ -2,7 +2,7 @@
 
 ## Raspberry Pi OS
 
-The reference setup is a Raspberry Pi 3 Model B+ with Raspberry Pi OS 64-bit and an 800×480 DSI touchscreen. Other Raspberry Pi models and landscape displays can work too. Screenshots of first-run setup and hourly details are in the project [README](README.md#screenshots).
+The reference setup is a Raspberry Pi 3 Model B+ with Raspberry Pi OS 64-bit and an 800×480 DSI touchscreen. Other Raspberry Pi models and landscape displays can work too. Screenshots of first-run setup and hourly details are in the project [README](../../README.md#screenshots).
 
 ### Install and run
 

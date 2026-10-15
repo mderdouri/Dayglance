@@ -20,7 +20,7 @@ The service worker now caches only the local app shell. API paths bypass it. It 
 
 Source-path analysis found forecast refreshes (default 15 minutes per active location) and history requests previously called `localStorage.setItem` even though they were transient. They now remain in RAM and are not part of durable state serialization. Identical durable state is also not rewritten. Shell files may be written on first install or content change; unchanged shell loads do not write. API responses are not cached. Normal successful HTTP requests no longer add server journal lines; failures remain logged. Device settings are saved only when a startup setting changes.
 
-These rates are based on code-path inspection and a simulated service-worker test, not a measured SD-card write counter or kernel block-I/O trace. The storage change is non-visual; after the user confirmed the display was awake, a live 800×480 dashboard screenshot was captured at `docs/images/dayglance-devpi-20261015.png` and copied to the project root. Physical touchscreen and screensaver wake/resume were not exercised during this deployment.
+These rates are based on code-path inspection and a simulated service-worker test, not a measured SD-card write counter or kernel block-I/O trace. The storage change is non-visual; after the user confirmed the display was awake, a live 800×480 dashboard screenshot was captured at `docs/screenshots/dayglance-devpi-20261015.png`. Physical touchscreen and screensaver wake/resume were not exercised during this deployment.
 
 ## Operational validation note
 

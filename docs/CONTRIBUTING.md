@@ -2,9 +2,9 @@
 
 Thanks for helping improve Dayglance. Open an issue for a bug or feature idea, and include the browser, operating system, screen dimensions, and steps to reproduce when relevant. Please do not include private location details or credentials in reports.
 
-Code contributions are proposed by pull request; public contributors do not need direct write access. The owner reviews and decides whether to merge proposals. See [GOVERNANCE.md](GOVERNANCE.md) for roles, current GitHub enforcement, and the recommended review process.
+Code contributions are proposed by pull request; public contributors do not need direct write access. The owner reviews and decides whether to merge proposals. See [GOVERNANCE.md](project/GOVERNANCE.md) for roles, current GitHub enforcement, and the recommended review process.
 
-Follow the [coding standards](CODING_STANDARDS.md) and run the checks listed there that apply to your change. UI changes should include a screenshot update and touchscreen verification when available.
+Follow the [coding standards](project/CODING_STANDARDS.md) and run the checks listed there that apply to your change. UI changes should include a screenshot update and touchscreen verification when available.
 
 ## Development
 

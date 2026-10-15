@@ -4,7 +4,7 @@ Dayglance is a small, dependency-light application intended to run on Raspberry 
 
 ## Style and dependencies
 
-- Follow the whitespace rules in [`.editorconfig`](.editorconfig): UTF-8, LF endings, spaces, two-space indentation for web/config/documentation/shell files, and four-space indentation for standalone Python files.
+- Follow the whitespace rules in [`.editorconfig`](../../.editorconfig): UTF-8, LF endings, spaces, two-space indentation for web/config/documentation/shell files, and four-space indentation for standalone Python files.
 - In JavaScript, use `const` by default, `let` when reassignment is needed, descriptive names, and the existing semicolon style. Avoid adding a frontend framework, build system, or runtime dependency without a clear benefit for the Pi 3 B+ target.
 - Keep the server compatible with the Python standard library where practical. Use four-space indentation and type hints for new standalone Python code.
 - Keep shell scripts POSIX `sh` compatible, fail fast with `set -eu`, and quote paths and expansions.
