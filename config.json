@@ -1,0 +1,47 @@
+{
+  "_documentation": {
+    "about": "This file can be edited or copied to preconfigure Dayglance before launch. The _documentation section is explanatory and ignored by the app.",
+    "locations": {
+      "meaning": "defaultLocation is the first area shown. locations are additional swipeable areas. Use null and an empty list to ask for a location on first launch.",
+      "example": {
+        "id": "home",
+        "name": "San Francisco, California",
+        "query": "San Francisco",
+        "countryCode": "US"
+      },
+      "validInputs": "For a searched location, provide query as a city, region, or postal code; countryCode is an optional ISO country code such as US. For a fixed location, provide numeric latitude and longitude instead. Each id must be unique."
+    },
+    "preferences": {
+      "returnAfterSeconds": {"meaning": "Idle time before the hourly view closes; defaults to 60 seconds and 0 keeps it open.", "validValues": [0, 30, 60, 90, 120]},
+      "temperatureUnit": {"meaning": "Temperature display and forecast request units.", "validValues": ["fahrenheit", "celsius"]},
+      "measurementSystem": {"meaning": "Wind, pressure, visibility, and precipitation units.", "validValues": ["imperial", "metric"]},
+      "clockFormat": {"meaning": "Hour display format.", "validValues": ["system", "12", "24"]},
+      "refreshMinutes": {"meaning": "How often the forecast is refreshed.", "validValues": [15, 30, 60]},
+      "temperatureGraphRange": {"meaning": "Temperature graph period: day shows the next 24 hours, week shows 7 forecast days, forecast16 shows up to 16 forecast days, and history30 shows the previous 30 days ending today.", "validValues": ["day", "week", "forecast16", "history30"], "examples": {"day": "Next 24 hours", "week": "7-day forecast", "forecast16": "16-day outlook", "history30": "Past 30 days of historical weather, not a forecast"}},
+      "autoScrollLocations": {"meaning": "Automatically advance through saved locations when more than one exists; the cycle loops between locations and does not open the add-location page.", "validValues": [true, false]},
+      "autoScrollIntervalSeconds": {"meaning": "Time to show each location before smoothly advancing. This timer is only used when autoScrollLocations is true.", "validValues": [30, 60, 300, 900], "examples": {"30": "30 seconds", "60": "1 minute", "300": "5 minutes", "900": "15 minutes"}},
+      "showBumpers": {"meaning": "Show optional previous/next buttons below the hourly cards. The cards remain swipeable when false.", "validValues": [true, false]}
+    },
+    "startup": {
+      "autoStart": "true starts Dayglance at desktop login after install-autostart.sh is installed; false leaves it off.",
+      "kiosk": "true opens Chromium in full-screen kiosk mode; false opens a maximized window."
+    }
+  },
+  "defaultLocation": null,
+  "locations": [],
+  "preferences": {
+    "returnAfterSeconds": 60,
+    "temperatureUnit": "fahrenheit",
+    "measurementSystem": "imperial",
+    "clockFormat": "system",
+    "refreshMinutes": 15,
+    "temperatureGraphRange": "day",
+    "autoScrollLocations": false,
+    "autoScrollIntervalSeconds": 30,
+    "showBumpers": true
+  },
+  "startup": {
+    "autoStart": false,
+    "kiosk": true
+  }
+}
