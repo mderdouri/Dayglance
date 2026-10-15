@@ -16,6 +16,8 @@ Dayglance provides weather forecasts and archived past-days data through Open-Me
 
 ![Dayglance air-quality estimate preview at 800 by 480](docs/images/dayglance-air-quality-2026-10-15.png)
 
+![Live Dayglance dashboard on DevPi after the air-quality update, captured October 15, 2026](docs/images/devpi-air-quality-2026-10-15.png)
+
 _Preview uses sample API responses; live AQI and PM2.5 values vary by place and time._
 
 ![Dayglance first-launch location setup](docs/images/first-launch.png)
