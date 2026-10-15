@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Check JavaScript syntax
+        run: node --check app.js
+
+      - name: Check Python configuration tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Check shell syntax
+        run: sh -n launch-dayglance.sh install-autostart.sh tests/test-launcher-config.sh
+
+      - name: Check JSON configuration
+        run: python3 -m json.tool config.json > /dev/null
+
+      - name: Check launcher configuration scenarios
+        run: sh tests/test-launcher-config.sh

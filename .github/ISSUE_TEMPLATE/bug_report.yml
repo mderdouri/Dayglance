@@ -1,0 +1,36 @@
+name: Bug report
+description: Report a problem with Dayglance
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Please avoid posting private location details, passwords, or API keys.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe what you saw and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: 1. Open Dayglance…
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and screen
+      placeholder: Raspberry Pi model, OS, browser, and display resolution
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant error or screenshot
+      description: Remove personal information before sharing.
+    validations:
+      required: false

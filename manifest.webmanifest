@@ -1,0 +1,11 @@
+{
+  "name": "Dayglance — weather at a glance",
+  "short_name": "Dayglance",
+  "description": "A touch-first Raspberry Pi weather dashboard with multi-city forecasts, hourly details, and optional automatic location rotation.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#e9f0f1",
+  "theme_color": "#e9f0f1"
+}
