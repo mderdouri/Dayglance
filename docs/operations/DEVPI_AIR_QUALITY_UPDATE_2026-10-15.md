@@ -11,7 +11,7 @@ Dayglance's production kiosk was updated in place with the modeled air-quality f
 
 ## Verification
 
-HTTP 200 was confirmed for `/`, `/air-quality.js`, `/app.js`, `/styles.css`, `/sw.js`, and `/api/device-settings`. The device settings endpoint remained available. A live 800×480 DevPi screenshot shows the modeled U.S. AQI and PM2.5 estimate alongside current conditions; see [the screenshot](docs/images/devpi-air-quality-2026-10-15.png).
+HTTP 200 was confirmed for `/`, `/air-quality.js`, `/app.js`, `/styles.css`, `/sw.js`, and `/api/device-settings`. The device settings endpoint remained available. A live 800×480 DevPi screenshot shows the modeled U.S. AQI and PM2.5 estimate alongside current conditions; see [the screenshot](../screenshots/devpi-air-quality-2026-10-15.png).
 
 The PR's CI run #12 passed on the deployed application code. Physical touchscreen interaction and wake after a full screensaver interval were not retested during this update.
 

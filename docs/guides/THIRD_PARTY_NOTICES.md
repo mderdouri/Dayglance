@@ -14,4 +14,4 @@ The Open-Meteo Geocoding API documents its location data as based on [GeoNames](
 
 ## Scope of the MIT license
 
-The [MIT License](LICENSE) applies to the original software files in this repository. It does not grant rights to external APIs, their service infrastructure, or third-party datasets beyond the terms granted by their respective providers.
+The [MIT License](../../LICENSE) applies to the original software files in this repository. It does not grant rights to external APIs, their service infrastructure, or third-party datasets beyond the terms granted by their respective providers.

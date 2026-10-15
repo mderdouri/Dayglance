@@ -4,7 +4,7 @@
 
 ## How was it checked?
 
-- [ ] Relevant checks in [CODING_STANDARDS.md](../CODING_STANDARDS.md) pass.
+- [ ] Relevant checks in [CODING_STANDARDS.md](../docs/project/CODING_STANDARDS.md) pass.
 - [ ] For UI changes, I checked the affected flow at 800×480 and updated screenshots or documentation when needed.
 - [ ] I checked touch interaction and screensaver resume when affected.
 

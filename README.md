@@ -14,24 +14,11 @@ Dayglance provides weather forecasts and archived past-days data through Open-Me
 
 ## Screenshots
 
-![Dayglance air-quality estimate preview at 800 by 480](docs/images/dayglance-air-quality-2026-10-15.png)
+![Live Dayglance dashboard on DevPi](docs/screenshots/devpi-air-quality-2026-10-15.png)
 
-![Live Dayglance dashboard on DevPi after the air-quality update, captured October 15, 2026](docs/images/devpi-air-quality-2026-10-15.png)
+![Dayglance hourly detail view](docs/screenshots/hourly-details.png)
 
-_Preview uses sample API responses; live AQI and PM2.5 values vary by place and time._
-
-![Dayglance first-launch location setup](docs/images/first-launch.png)
-
-![Dayglance hourly forecast details with swipeable cards and optional arrow controls](docs/images/hourly-view.jpg)
-
-![Dayglance Today detail beginning at the current hour](docs/images/dayglance-hourly-today-20261015.png)
-
-![Dayglance Settings with Locations at the top and clear startup state](docs/images/dayglance-settings-location-first-20261015.png)
-
-![Dayglance settings with vertically swipeable content and a pinned close button](docs/images/settings-touch-scroll.jpg)
-
-![Live Dayglance dashboard on the DevPi touchscreen, captured October 15, 2026](docs/images/dayglance-devpi-20261015.png)
-
+[Browse all screenshots](docs/screenshots/README.md), including setup and settings views.
 ## Features
 
 - Guided first-run setup with city, region, and ZIP/postal-code search and live location suggestions.
@@ -49,7 +36,7 @@ _Preview uses sample API responses; live AQI and PM2.5 values vary by place and 
 
 Dayglance keeps fetched weather in memory while it is running instead of writing a new forecast cache to browser storage on each refresh. Locations and settings persist across restarts; after a restart the app fetches a fresh forecast from Open-Meteo. The service worker only updates its app-shell cache when file contents change.
 
-When updating an existing installation, preserve its `config.json`, `device-settings.json`, browser profile, and app origin. See [Updating Dayglance](DEPLOYMENT.md) for the storage map and safe update procedure.
+When updating an existing installation, preserve its `config.json`, `device-settings.json`, browser profile, and app origin. See [Updating Dayglance](docs/guides/DEPLOYMENT.md) for the storage map and safe update procedure.
 
 ## Example hardware
 
@@ -78,7 +65,7 @@ python3 server.py
 
 Open [http://localhost:8080](http://localhost:8080), search for your city or ZIP/postal code, and select a validated match. The browser remembers your locations on that device.
 
-On a Raspberry Pi, use the same commands in a terminal. For a kiosk on the Pi itself, open `http://localhost:8080` in Chromium with kiosk mode after starting the server. See [INSTALLING.md](INSTALLING.md) for step-by-step installation and [CONFIGURATION.md](CONFIGURATION.md) for preconfigured locations.
+On a Raspberry Pi, use the same commands in a terminal. For a kiosk on the Pi itself, open `http://localhost:8080` in Chromium with kiosk mode after starting the server. See [INSTALLING.md](docs/guides/INSTALLING.md) for step-by-step installation and [CONFIGURATION.md](docs/guides/CONFIGURATION.md) for preconfigured locations.
 
 To make the server reachable from another device on your local network, bind it to the Pi's LAN interfaces:
 
@@ -94,13 +81,13 @@ Run the server configuration tests with `python3 -m unittest discover -s tests -
 
 ## Data source and usage
 
-Forecast, geocoding, archived-weather, and air-quality requests go directly from the browser to Open-Meteo. Air-quality values use the CAMS-based model and represent estimates, not local sensor measurements. The interface credits Open-Meteo and CAMS. Open-Meteo's free hosted API is for non-commercial use, is rate-limited, and has no uptime guarantee; review its current [pricing and usage terms](https://open-meteo.com/en/pricing) before using Dayglance commercially or at scale. The underlying weather and air-quality datasets are provided under CC BY 4.0 and require attribution. Location search uses GeoNames data through Open-Meteo. See [third-party notices](THIRD_PARTY_NOTICES.md).
+Forecast, geocoding, archived-weather, and air-quality requests go directly from the browser to Open-Meteo. Air-quality values use the CAMS-based model and represent estimates, not local sensor measurements. The interface credits Open-Meteo and CAMS. Open-Meteo's free hosted API is for non-commercial use, is rate-limited, and has no uptime guarantee; review its current [pricing and usage terms](https://open-meteo.com/en/pricing) before using Dayglance commercially or at scale. The underlying weather and air-quality datasets are provided under CC BY 4.0 and require attribution. Location search uses GeoNames data through Open-Meteo. See [third-party notices](docs/guides/THIRD_PARTY_NOTICES.md).
 
 ## Project status
 
-Dayglance is an actively developed personal project. It has been exercised on a Raspberry Pi touchscreen, but browser, display, and screensaver behavior can vary by device. Contributions and issue reports are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md), [GOVERNANCE.md](GOVERNANCE.md), and [CODING_STANDARDS.md](CODING_STANDARDS.md) for contribution, review, and coding guidance.
+Dayglance is an actively developed personal project. It has been exercised on a Raspberry Pi touchscreen, but browser, display, and screensaver behavior can vary by device. Contributions and issue reports are welcome. See [CONTRIBUTING.md](docs/CONTRIBUTING.md), [GOVERNANCE.md](docs/project/GOVERNANCE.md), and [CODING_STANDARDS.md](docs/project/CODING_STANDARDS.md) for contribution, review, and coding guidance.
 
-Touchscreen layout and interaction decisions are recorded in [DESIGN_NOTES.md](DESIGN_NOTES.md).
+Touchscreen layout and interaction decisions are recorded in [DESIGN_NOTES.md](docs/project/DESIGN_NOTES.md).
 
 ## License
 
