@@ -36,7 +36,7 @@ let touchStart = null;
 let lastResumeRefresh = 0;
 
 function readSaved(){try{return JSON.parse(localStorage.getItem(STORE_KEY)||'{}')}catch{return {}}}
-function save(){localStorage.setItem(STORE_KEY,JSON.stringify(saved))}
+function save(){const {forecasts,histories,...persistent}=saved;const serialized=JSON.stringify(persistent);if(localStorage.getItem(STORE_KEY)!==serialized)localStorage.setItem(STORE_KEY,serialized)}
 function text(id,value){const el=document.getElementById(id);if(el)el.textContent=value}
 function weatherType(code,isDay=true){
   let label='Weather',type=isDay?'sun':'moon';

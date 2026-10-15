@@ -31,4 +31,5 @@ These instructions apply to AI agents working in this repository. Follow the use
 ## GitHub and access
 
 - Work only with the Dayglance repository's authorized, appropriately scoped access. Do not request broader organization access or unrelated credentials. If repository settings require administrative access that is unavailable, explain the limitation and provide the exact owner action needed.
+- Keep pull requests small and reviewable: open or update a PR at each coherent, independently reviewable breakpoint instead of accumulating unrelated work. For longer tasks, publish validated increments so useful work is visible and recoverable; include checks and screenshots/docs when relevant. Do not create empty or placeholder PRs, and follow the user's/repository's authorization rules for commits and pushes.
 - Treat pull requests as proposals. Do not bypass required checks, branch rules, or review safeguards.

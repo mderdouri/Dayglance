@@ -33,7 +33,7 @@ For a repository owned by a personal account, GitHub provides the owner and coll
 ## How changes are reviewed
 
 1. Use the [bug report](.github/ISSUE_TEMPLATE/bug_report.yml) or [feature request](.github/ISSUE_TEMPLATE/feature_request.yml) form to describe the problem or idea. Avoid posting credentials or private location details.
-2. For code changes, open a pull request from a branch or fork and explain the user-visible change and how it was checked.
+2. For code changes, open a focused pull request from a branch or fork at a coherent, reviewable breakpoint. Keep unrelated work in separate PRs; for longer efforts, update the PR as validated increments are ready instead of waiting for a large batch. Explain the user-visible change and how it was checked.
 3. Reviewers discuss the change in the pull request. The author responds to feedback and updates the proposal as needed.
 4. The owner decides whether and when to merge. Do not merge solely because an approval icon is present; assess the change and its checks.
 

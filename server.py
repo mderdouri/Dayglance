@@ -123,6 +123,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json(200, self.read_device_settings())
 
     def log_message(self, format: str, *args: object) -> None:
+        if len(args) > 1 and str(args[1]).isdigit() and int(args[1]) < 400:
+            return
         print(f"{self.address_string()} - {format % args}")
 
 

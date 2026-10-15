@@ -1,10 +1,12 @@
 """Integration tests for device startup settings and config.json precedence."""
 
+import io
 import json
 import sys
 import tempfile
 import threading
 import unittest
+from contextlib import redirect_stdout
 from http.server import HTTPServer
 from pathlib import Path
 from unittest.mock import patch
@@ -79,6 +81,22 @@ class DeviceSettingsConfigTests(unittest.TestCase):
     def test_invalid_config_falls_back_to_safe_startup_defaults(self):
         self.config_path.write_text("not-json", encoding="utf-8")
         self.assertEqual(self.request(), (200, {"autoStart": False, "kiosk": True, "autostartInstalled": False}))
+
+    def test_successful_requests_are_not_written_to_server_log(self):
+        handler = object.__new__(server.Handler)
+        output = io.StringIO()
+        with patch.object(server.Handler, "address_string", return_value="127.0.0.1"):
+            with redirect_stdout(output):
+                server.Handler.log_message(handler, '"%s" %s %s', "GET /app.js HTTP/1.1", 200, "100")
+        self.assertEqual(output.getvalue(), "")
+
+    def test_failed_requests_remain_visible_in_server_log(self):
+        handler = object.__new__(server.Handler)
+        output = io.StringIO()
+        with patch.object(server.Handler, "address_string", return_value="127.0.0.1"):
+            with redirect_stdout(output):
+                server.Handler.log_message(handler, '"%s" %s %s', "GET /missing HTTP/1.1", 404, "0")
+        self.assertIn("404", output.getvalue())
 
 
 if __name__ == "__main__":
