@@ -7,6 +7,8 @@ import argparse
 import ipaddress
 import json
 import os
+import shlex
+import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -16,9 +18,11 @@ ROOT = Path(__file__).resolve().parent
 DEVICE_SETTINGS_PATH = ROOT / "device-settings.json"
 CONFIG_PATH = ROOT / "config.json"
 AUTOSTART_PATH = Path.home() / ".config" / "autostart" / "dayglance.desktop"
+STARTUP_SUPPORTED = sys.platform.startswith("linux")
 FILES = {
     "index.html": "text/html; charset=utf-8",
     "app.js": "text/javascript; charset=utf-8",
+    "detail-hours.js": "text/javascript; charset=utf-8",
     "styles.css": "text/css; charset=utf-8",
     "manifest.webmanifest": "application/manifest+json; charset=utf-8",
     "config.json": "application/json; charset=utf-8",
@@ -53,8 +57,60 @@ class Handler(BaseHTTPRequestHandler):
         return {
             "autoStart": data.get("autoStart") is True,
             "kiosk": data.get("kiosk") is not False,
-            "autostartInstalled": AUTOSTART_PATH.is_file(),
+            "autostartInstalled": self.autostart_is_configured(),
+            "startupSupported": STARTUP_SUPPORTED,
         }
+
+    def autostart_is_configured(self) -> bool:
+        if "labwc" in os.environ.get("XDG_CURRENT_DESKTOP", "").lower():
+            path = Path.home() / ".config" / "labwc" / "autostart"
+            try:
+                return "# Dayglance managed startup" in path.read_text(encoding="utf-8")
+            except OSError:
+                return False
+        return AUTOSTART_PATH.is_file()
+
+    def ensure_autostart_entry(self) -> None:
+        """Create the desktop login dispatcher once, when local settings are saved."""
+        launcher = shlex.quote(str(ROOT / "launch-dayglance.sh"))
+        if "labwc" in os.environ.get("XDG_CURRENT_DESKTOP", "").lower():
+            path = Path.home() / ".config" / "labwc" / "autostart"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                current = path.read_text(encoding="utf-8")
+            except FileNotFoundError:
+                current = ""
+            if "# Dayglance managed startup" in current:
+                return
+            addition = f"# Dayglance managed startup\n/bin/sh {launcher} &\n"
+            with path.open("a", encoding="utf-8") as stream:
+                if current and not current.endswith("\n"):
+                    stream.write("\n")
+                if current:
+                    stream.write("\n")
+                stream.write(addition)
+            return
+        if AUTOSTART_PATH.is_file():
+            return
+        AUTOSTART_PATH.parent.mkdir(parents=True, exist_ok=True)
+        escaped_launcher = str(ROOT / "launch-dayglance.sh").replace("\\", "\\\\").replace('"', '\\"')
+        desktop_entry = (
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=Dayglance\n"
+            "Comment=Start the Dayglance weather display at desktop login\n"
+            f'Exec="/bin/sh" "{escaped_launcher}"\n'
+            "Terminal=false\n"
+            "X-GNOME-Autostart-enabled=true\n"
+        )
+        temporary = AUTOSTART_PATH.with_name(f".{AUTOSTART_PATH.name}.tmp")
+        try:
+            temporary.write_text(desktop_entry, encoding="utf-8")
+            temporary.chmod(0o600)
+            temporary.replace(AUTOSTART_PATH)
+        except OSError:
+            temporary.unlink(missing_ok=True)
+            raise
 
     def is_local_client(self) -> bool:
         try:
@@ -94,6 +150,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self.is_local_client() or (origin and urlsplit(origin).netloc != self.headers.get("Host")):
             self.send_error(403, "Device settings can only be changed from this Pi")
             return
+        if not STARTUP_SUPPORTED:
+            self.send_error(501, "Desktop login startup is supported on Linux only")
+            return
         if self.headers.get_content_type() != "application/json":
             self.send_error(415, "Expected application/json")
             return
@@ -109,6 +168,13 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, json.JSONDecodeError) as error:
             self.send_error(400, str(error))
             return
+
+        if data["autoStart"]:
+            try:
+                self.ensure_autostart_entry()
+            except OSError:
+                self.send_error(500, "Could not install the desktop login entry")
+                return
 
         temporary = DEVICE_SETTINGS_PATH.with_name(f".{DEVICE_SETTINGS_PATH.name}.tmp")
         try:
@@ -146,3 +212,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

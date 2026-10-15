@@ -89,7 +89,7 @@
             <div><p class="eyebrow">HOURLY FORECAST</p><h1 id="details-date">—</h1><p id="details-summary">—</p></div>
             <button class="close-details" id="close-details" type="button" aria-label="Return to current weather">×</button>
           </header>
-          <p class="hourly-hint">Swipe or drag to explore this day, from 12 AM to 11 PM. Use the arrows if you prefer.</p>
+          <p class="hourly-hint" id="hourly-hint">Swipe or drag to explore this day, from 12 AM to 11 PM. Use the arrows if you prefer.</p>
           <div class="hourly-navigation">
             <button class="hour-scroll-button" id="hours-previous" type="button" aria-label="Earlier hours">&#8249;</button>
             <div class="hourly-list" id="hourly-list" tabindex="0" aria-label="Hourly forecast. Swipe left or right for more hours."></div>
@@ -108,6 +108,12 @@
           </header>
           <p class="settings-help settings-config-note">Swipe up or down across settings to see every option. The close button stays at the top while you scroll. For keyboard-free setup, edit config.json to preconfigure locations, display settings, and Pi startup. It lists valid values and examples. Browser-saved settings and Pi-local startup overrides take priority.</p>
           <div class="settings-grid">
+            <section class="settings-section location-settings">
+              <h2>Locations</h2>
+              <div class="default-location-row"><div><span class="settings-label">Default location</span><strong id="settings-default-name">—</strong></div><button class="small-action" id="settings-edit-default" type="button">Edit</button></div>
+              <div id="settings-locations" class="settings-location-list"></div>
+              <button class="small-action add-setting-location" id="settings-add-location" type="button">＋ Add a location</button>
+            </section>
             <section class="settings-section">
               <h2>Weather &amp; Display</h2>
               <label class="setting-row"><span>Hourly view return timer</span><select id="setting-return-time"><option value="30">30 seconds</option><option value="60">1 minute</option><option value="90">1 minute 30 seconds</option><option value="120">2 minutes</option><option value="0">Stay open until closed</option></select></label>
@@ -119,7 +125,7 @@
             </section>
             <section class="settings-section launch-settings">
               <h2>Startup &amp; Screen</h2>
-              <label class="setting-row check-row"><span>Start Dayglance when the desktop logs in</span><input id="setting-auto-start" type="checkbox" /></label>
+              <div class="setting-row startup-setting-row"><span>Start Dayglance when the desktop logs in <small id="startup-state" class="startup-state" aria-live="polite">Disabled</small></span><button id="setting-auto-start" class="small-action startup-toggle" type="button" aria-pressed="false">Enable</button></div>
               <label class="setting-row check-row"><span>Open in full-screen kiosk mode</span><input id="setting-kiosk" type="checkbox" /></label>
               <button class="small-action" id="fullscreen-now" type="button">Toggle full screen now</button>
               <p class="settings-help" id="startup-status">Startup settings are available when running on the Raspberry Pi's local server.</p>
@@ -137,12 +143,6 @@
               <label class="setting-row check-row"><span>Show left and right scroll buttons</span><input id="setting-bumpers" type="checkbox" checked /></label>
               <p class="settings-help">Changes apply immediately and are saved in this browser.</p>
             </section>
-            <section class="settings-section location-settings">
-              <h2>Locations</h2>
-              <div class="default-location-row"><div><span class="settings-label">Default location</span><strong id="settings-default-name">—</strong></div><button class="small-action" id="settings-edit-default" type="button">Edit</button></div>
-              <div id="settings-locations" class="settings-location-list"></div>
-              <button class="small-action add-setting-location" id="settings-add-location" type="button">＋ Add a location</button>
-            </section>
           </div>
           <p class="settings-status" id="settings-status" role="status" aria-live="polite"></p>
         </div>
@@ -150,6 +150,8 @@
 
       <div class="loading" id="loading" hidden><span class="spinner" aria-hidden="true"></span><span id="loading-message">Loading forecast…</span></div>
     </main>
+    <script src="./detail-hours.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>
+

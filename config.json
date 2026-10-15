@@ -23,7 +23,7 @@
       "showBumpers": {"meaning": "Show optional previous/next buttons below the hourly cards. The cards remain swipeable when false.", "validValues": [true, false]}
     },
     "startup": {
-      "autoStart": "true starts Dayglance at desktop login after install-autostart.sh is installed; false leaves it off.",
+      "autoStart": "True starts Dayglance at desktop login; enabling it in local Pi Settings installs the login hook automatically. For JSON-only setup, run install-autostart.sh once. False leaves it off.",
       "kiosk": "true opens Chromium in full-screen kiosk mode; false opens a maximized window."
     }
   },
@@ -45,3 +45,4 @@
     "kiosk": true
   }
 }
+
