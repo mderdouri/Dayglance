@@ -20,6 +20,8 @@ Dayglance currently provides forecasts and archived past-days data through Open-
 
 ![Dayglance settings with vertically swipeable content and a pinned close button](docs/images/settings-touch-scroll.jpg)
 
+![Live Dayglance dashboard on the DevPi touchscreen, captured October 15, 2026](docs/images/dayglance-devpi-20261015.png)
+
 ## Features
 
 - Guided first-run setup with city, region, and ZIP/postal-code search and live location suggestions.
@@ -34,6 +36,8 @@ Dayglance currently provides forecasts and archived past-days data through Open-
 - Hourly view returns after 60 seconds without interaction by default. The timer pauses while you interact and starts over after you stop; choose a different interval in Settings or `config.json`.
 - Inline SVG weather icons, a responsive 800×480 layout, and a cached app shell for offline startup.
 - No account or API key is needed for personal, non-commercial use of the free Open-Meteo endpoint.
+
+Dayglance keeps fetched weather in memory while it is running instead of writing a new forecast cache to browser storage on each refresh. Locations and settings persist across restarts; after a restart the app fetches a fresh forecast from Open-Meteo. The service worker only updates its app-shell cache when file contents change.
 
 ## Example hardware
 

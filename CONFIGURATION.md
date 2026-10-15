@@ -78,6 +78,12 @@ Location rotation is configurable in **Settings → Location rotation**. It adva
 
 Browser preferences changed in the Settings menu are stored in that browser and take precedence over `config.json`. On a fresh browser profile, the JSON preferences are used directly. To switch an existing browser back to copied JSON defaults, clear Dayglance's saved site data for that browser. Keep this file free of API keys, passwords, and other secrets; the browser downloads it as a public static file.
 
+## Runtime storage and writes
+
+While the page is open, fetched forecasts and 30-day history are kept in memory. They are no longer written to browser storage on every refresh. Locations, preferences, and geocoded coordinates remain saved so the display can be restored across restarts. After a browser restart, Dayglance fetches weather again; without a network connection it cannot show a forecast left over from a previous session. Existing saved forecast/history caches are removed from persistent browser storage on the first save after this update, while remaining available in memory until the page closes.
+
+The service worker keeps the app shell for offline startup. It revalidates those files from the local server and only updates its cache when a file's content changes; it does not cache API responses. The Python server now logs failed HTTP requests rather than every successful asset/settings request. Raspberry Pi startup options are written to `device-settings.json` only when changed in Settings.
+
 ## Settings menu
 
 Use the gear button beside refresh to edit the default location, add or remove additional locations, and adjust forecast and hourly-view preferences. Swipe or drag the hourly cards directly to explore the forecast; optional left and right buttons can move through the same content. Removing a location loaded from `config.json` hides it only on that device; remove it from the file to remove it from every copy. Startup controls are available when the app is running from its local Python server on the Pi and the desktop auto-start entry has been installed. Startup options apply the next time the Dayglance launcher runs; they do not restart an open display or require a forecast-server restart.
