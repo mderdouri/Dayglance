@@ -7,6 +7,7 @@
     <meta name="description" content="A clear, touch-friendly local weather forecast." />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="stylesheet" href="./styles.css" />
+    <script src="./air-quality.js" defer></script>
     <title>Dayglance</title>
   </head>
   <body>
@@ -64,6 +65,7 @@
             <div class="condition"><span class="condition-icon" aria-hidden="true">⌁</span><span class="condition-label">Pressure</span><strong id="pressure">—</strong></div>
             <div class="condition"><span class="condition-icon" aria-hidden="true">◍</span><span class="condition-label">UV index</span><strong id="uv">—</strong></div>
             <div class="condition"><span class="condition-icon" aria-hidden="true">◎</span><span class="condition-label">Visibility</span><strong id="visibility">—</strong></div>
+            <div class="condition air-quality"><span class="condition-icon" aria-hidden="true">◇</span><span class="condition-label">Air quality · est.</span><strong id="air-quality-value">—</strong><small class="condition-subvalue" id="air-quality-pm">PM2.5 —</small></div>
           </div>
         </div>
 
@@ -76,7 +78,7 @@
           <div class="week-heading"><h2>Next 7 days</h2><span>Tap for hourly · Swipe for areas</span></div>
           <div class="day-list" id="day-list"></div>
         </section>
-        <footer class="attribution dashboard-attribution">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a></footer>
+        <footer class="attribution dashboard-attribution">Weather by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> · Air-quality model by <a href="https://atmosphere.copernicus.eu/" target="_blank" rel="noreferrer">CAMS</a> via <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a></footer>
       </section>
 
       <section class="add-page" id="add-page" hidden aria-label="Add a weather location">

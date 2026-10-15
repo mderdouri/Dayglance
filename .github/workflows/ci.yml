@@ -25,6 +25,11 @@ jobs:
           node --check detail-hours.js
           node --test tests/test-detail-hours.js
 
+      - name: Check and test air-quality presentation
+        run: |
+          node --check air-quality.js
+          node --test tests/test-air-quality.js
+
       - name: Check Python configuration tests
         run: python3 -m unittest discover -s tests -v
 

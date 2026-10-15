@@ -2,6 +2,7 @@ const STORE_KEY = 'weather-dashboard:v2';
 const CONFIG_URL = './config.json';
 const API = 'https://api.open-meteo.com/v1/forecast';
 const GEOCODE_API = 'https://geocoding-api.open-meteo.com/v1/search';
+const AIR_QUALITY_API = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 const FALLBACK_CONFIG = {defaultLocation:null,locations:[]};
 const hourlyWindow = window.DayglanceHourlyWindow;
 const DEFAULT_PREFERENCES = {returnAfterSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,showBumpers:true,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30};
@@ -205,6 +206,18 @@ function makeForecastUrl(location){
   const params=new URLSearchParams({latitude:location.latitude,longitude:location.longitude,current:'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl,visibility,uv_index',hourly:'temperature_2m,apparent_temperature,precipitation_probability,weather_code',daily:'weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max,wind_speed_10m_max',temperature_unit:preferences.temperatureUnit,wind_speed_unit:metric?'kmh':'mph',precipitation_unit:metric?'mm':'inch',timezone:'auto',forecast_days:preferences.temperatureGraphRange==='forecast16'?'16':'7'});
   return `${API}?${params}`;
 }
+function makeAirQualityUrl(location){
+  const params=new URLSearchParams({latitude:location.latitude,longitude:location.longitude,current:'us_aqi,pm2_5',timezone:'auto'});
+  return `${AIR_QUALITY_API}?${params}`;
+}
+async function fetchAirQuality(location){
+  try{
+    const response=await fetch(makeAirQualityUrl(location),{cache:'no-store'});
+    if(!response.ok)return null;
+    const data=await response.json();
+    return data.current||null;
+  }catch{return null}
+}
 async function resolveLocation(area){
   if(Number.isFinite(area.latitude)&&Number.isFinite(area.longitude))return area;
   const cached=saved.resolved[area.id];if(cached)return {...area,...cached};
@@ -222,10 +235,11 @@ async function resolveLocation(area){
 }
 async function fetchForecast(area){
   const location=await resolveLocation(area);
-  const response=await fetch(makeForecastUrl(location),{cache:'no-store'});
+  const [response,airQuality]=await Promise.all([fetch(makeForecastUrl(location),{cache:'no-store'}),fetchAirQuality(location)]);
   if(!response.ok)throw new Error('The forecast service is temporarily unavailable. Please try again.');
   const data=await response.json();
   if(!data.current||!data.daily||!data.hourly)throw new Error('The forecast service returned incomplete weather data.');
+  data.airQuality=airQuality;
   saved.forecasts[area.id]={data,fetchedAt:Date.now(),temperatureUnit:preferences.temperatureUnit,measurementSystem:preferences.measurementSystem};save();
   currentForecast=data;render(data,location);setStatus(`Updated ${new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(new Date())}`);
 }
@@ -252,6 +266,9 @@ function render(data,location){
   text('wind',`${safeNumber(current.wind_speed_10m)} ${metric?'km/h':'mph'} ${compass(current.wind_direction_10m)}`);text('humidity',`${safeNumber(current.relative_humidity_2m)}%`);
   text('pressure',Number.isFinite(Number(current.pressure_msl))?metric?`${safeNumber(current.pressure_msl)} hPa`:`${(current.pressure_msl*0.029529983).toFixed(2)} inHg`:'—');text('uv',safeNumber(current.uv_index,1));
   text('visibility',Number.isFinite(Number(current.visibility))?metric?`${(current.visibility/1000).toFixed(1)} km`:`${(current.visibility/1609.344).toFixed(1)} mi`:'—');
+  const air=window.DayglanceAirQuality.formatAirQuality(data.airQuality);
+  text('air-quality-value',air.value);text('air-quality-pm',air.pm25);
+  $('#air-quality-value').title=air.category;$('#air-quality-value').setAttribute('aria-label',air.ariaLabel);
   renderTrend(data,location);renderDays(daily);
 }
 function renderTrend(data,location){
