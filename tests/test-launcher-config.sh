@@ -6,7 +6,7 @@ test_dir=$(mktemp -d /tmp/dayglance-config-launch.XXXXXX)
 test_project="$test_dir/project"
 mock_bin="$test_dir/bin"
 mkdir -p "$test_project" "$mock_bin"
-cp "$project_dir/launch-dayglance.sh" "$project_dir/server.py" "$test_project/"
+cp "$project_dir/launch-dayglance.sh" "$project_dir/server.py" "$project_dir/weather_station.py" "$test_project/"
 test_log="$test_dir/browser-args.txt"
 
 cleanup() {

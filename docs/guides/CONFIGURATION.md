@@ -47,7 +47,24 @@ Edit or copy `config.json` into the project root before starting Dayglance. Its 
   "startup": {
     "autoStart": false,
     "kiosk": true
-  }
+  },
+  "stationReceiver": {
+    "bindAddress": "192.168.1.50",
+    "port": 8082,
+    "path": "/weatherstation/updateweatherstation.php"
+  },
+  "stationIntegrations": [
+    {
+      "id": "backyard",
+      "name": "Backyard station",
+      "provider": "ambient-weather",
+      "connection": "local-upload",
+      "enabled": true,
+      "sourceIp": "192.168.1.60",
+      "locationId": null,
+      "staleAfterSeconds": 600
+    }
+  ]
 }
 ```
 
@@ -81,6 +98,18 @@ Hourly details for Today begin at the current local hour and hide earlier hours.
 `startup.autoStart` enables the desktop login launcher. `startup.kiosk` selects full-screen kiosk mode (`true`) or a maximized browser window (`false`). On a local Linux or Raspberry Pi session, enabling auto-start in Settings installs the desktop login hook automatically and writes per-device overrides to `device-settings.json`; those overrides take precedence over the JSON defaults. On Raspberry Pi OS with labwc, Dayglance adds a marked entry to `~/.config/labwc/autostart`; on other Linux desktops it creates `~/.config/autostart/dayglance.desktop`. Changes apply at the next desktop login or next launcher run. `install-autostart.sh` remains available for manual or keyboard-free setup.
 
 Browser preferences changed in the Settings menu are stored in that browser and take precedence over `config.json`. On a fresh browser profile, the JSON preferences are used directly. To switch an existing browser back to copied JSON defaults, clear Dayglance's saved site data for that browser. Keep this file free of API keys, passwords, and other secrets; the browser downloads it as a public static file.
+
+## Local weather-station integration
+
+Each saved city may be associated with zero or one local observation source. This association is per browser/device and can be changed in **Settings → Local Weather Stations**. A station does not become an extra carousel location: its live measurements appear on the selected city's dashboard, while the forecast and hourly view continue to use Open-Meteo. Station values are labeled as local observations and automatically stop being used when their observation timestamp is older than `staleAfterSeconds`.
+
+The first adapter is Ambient Weather local upload. Dayglance accepts its native Ambient Weather field names and the Weather Underground-compatible upload format. Configure `stationReceiver` and one or more `stationIntegrations` in the project-root `config.json`. Use reserved private LAN addresses: `bindAddress` must be the Pi's specific address (never `0.0.0.0`), and `sourceIp` must be the station's reserved address. The sample addresses above are examples only. Do not forward the listener port through the router or expose it to the public internet. The receiver accepts only the configured path and registered station source IPs. Incoming samples stay in memory and are cleared when the service restarts; no station history is written to the SD card. The receiver ignores provider credentials and does not log upload URLs or query strings.
+
+In the station's companion app, look for a custom server/custom upload option and enter the Pi's LAN address, HTTP, port, upload path, and either the Ambient Weather or Weather Underground-compatible protocol. Ambient's official WS-2902 family FAQ documents a custom server form and both protocol formats, but the option and fields vary by station revision and firmware. Check the [Ambient WS-2902 FAQ](https://ambientweather.com/faqs/question/tags/tag/WS-2902A/) and your exact console manual; the listing for the device used during Dayglance development appears to be in this family, but its installed revision/firmware has not been verified. Reserve the station address in the router before enabling the listener. Once `config.json` is updated, restart the Dayglance service. Assign that station to its city under Settings; changing this association takes effect immediately and is saved in the browser on that device.
+
+Cloud-connected station services are an architectural extension point but are not yet supported. They will use the same one-station-per-city rule, with credentials held in a restricted server-side device file rather than `config.json` or browser storage.
+
+See [Local weather stations](LOCAL_STATIONS.md) for the complete setup, network safety, data mapping, and troubleshooting guide.
 
 ## Runtime storage and writes
 

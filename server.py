@@ -11,11 +11,13 @@ import shlex
 import sys
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, unquote, urlsplit
+from urllib.parse import parse_qs, urlencode, unquote, urlsplit
 from urllib.request import Request, urlopen
+
+from weather_station import freshness as station_freshness, normalize_upload
 
 
 ROOT = Path(__file__).resolve().parent
@@ -43,6 +45,10 @@ USAGE_FLUSH_SECONDS = 3600
 _usage_lock = threading.Lock()
 _usage_state: dict[str, object] = {"month": "", "tiles": 0, "nowcast": 0, "allowPaidUsage": False}
 _usage_last_write = 0.0
+_station_lock = threading.Lock()
+_station_observations: dict[str, dict[str, object]] = {}
+_station_config: dict[str, object] = {"receiver": {}, "integrations": []}
+_station_receiver_status = "disabled"
 
 
 def read_radar_key() -> str:
@@ -138,6 +144,197 @@ def save_paid_usage_setting(enabled: bool) -> None:
             "allowPaidUsage": enabled,
         })
         _usage_last_write = time.monotonic()
+
+
+def load_station_configuration() -> dict[str, object]:
+    """Read and validate city-scoped local station upload definitions."""
+    try:
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        config = {}
+    raw_receiver = config.get("stationReceiver", {}) if isinstance(config, dict) else {}
+    raw_sources = config.get("stationIntegrations", []) if isinstance(config, dict) else []
+    if not isinstance(raw_receiver, dict) or not isinstance(raw_sources, list):
+        raise ValueError("stationReceiver must be an object and stationIntegrations must be an array")
+
+    receiver = {
+        "bindAddress": raw_receiver.get("bindAddress", "127.0.0.1"),
+        "port": raw_receiver.get("port", 8082),
+        "path": raw_receiver.get("path", "/weatherstation/updateweatherstation.php"),
+    }
+    integrations: list[dict[str, object]] = []
+    ids: set[str] = set()
+    source_ips: set[str] = set()
+    linked_locations: set[str] = set()
+    for source in raw_sources:
+        if not isinstance(source, dict):
+            raise ValueError("Each station integration must be an object")
+        if source.get("enabled") is not True:
+            continue
+        source_id = source.get("id")
+        location_id = source.get("locationId")
+        if not isinstance(source_id, str) or not source_id.strip() or len(source_id) > 80:
+            raise ValueError("Enabled station integrations need a short, non-empty id")
+        if location_id is not None and (not isinstance(location_id, str) or not location_id.strip() or len(location_id) > 120):
+            raise ValueError(f"Station integration {source_id!r} locationId must be a non-empty string or null")
+        if source_id in ids:
+            raise ValueError(f"Duplicate station integration id: {source_id}")
+        if location_id and location_id in linked_locations:
+            raise ValueError(f"Only one enabled station integration can be assigned to {location_id}")
+        ids.add(source_id)
+        if location_id:
+            linked_locations.add(location_id)
+        if source.get("provider") != "ambient-weather" or source.get("connection") != "local-upload":
+            raise ValueError(f"Unsupported station adapter for {source_id!r}; currently use ambient-weather/local-upload")
+        try:
+            source_ip = ipaddress.ip_address(str(source.get("sourceIp", "")))
+            bind_ip = ipaddress.ip_address(str(receiver["bindAddress"]))
+            port = int(receiver["port"])
+            stale_after = int(source.get("staleAfterSeconds", 600))
+        except (ValueError, TypeError) as error:
+            raise ValueError(f"Invalid network or timeout setting for station {source_id!r}") from error
+        if source_ip.version != 4 or not source_ip.is_private or source_ip.is_loopback:
+            raise ValueError(f"Station {source_id!r} sourceIp must be a private IPv4 address")
+        if str(source_ip) in source_ips:
+            raise ValueError("Each enabled local station must have a unique sourceIp")
+        source_ips.add(str(source_ip))
+        if bind_ip.version != 4 or not bind_ip.is_private or bind_ip.is_loopback or bind_ip.is_unspecified:
+            raise ValueError("Enabled stationReceiver.bindAddress must be the Pi's specific private IPv4 address")
+        if not 1024 <= port <= 65535:
+            raise ValueError("stationReceiver.port must be between 1024 and 65535")
+        path = receiver["path"]
+        if not isinstance(path, str) or not path.startswith("/") or "?" in path or ".." in path or len(path) > 160:
+            raise ValueError("stationReceiver.path must be a short absolute URL path without query or traversal")
+        if not 30 <= stale_after <= 3600:
+            raise ValueError(f"Station {source_id!r} staleAfterSeconds must be between 30 and 3600")
+        integrations.append({
+            "id": source_id,
+            "name": str(source.get("name") or "Local weather station")[:80],
+            "locationId": location_id,
+            "sourceIp": str(source_ip),
+            "provider": "ambient-weather",
+            "connection": "local-upload",
+            "staleAfterSeconds": stale_after,
+        })
+
+    return {"receiver": receiver, "integrations": integrations}
+
+
+def station_status_payload() -> dict[str, object]:
+    with _station_lock:
+        observations = dict(_station_observations)
+    result = []
+    for source in _station_config.get("integrations", []):
+        snapshot = station_freshness(observations.get(source["id"]), int(source["staleAfterSeconds"]))
+        result.append({
+            "id": source["id"],
+            "name": source["name"],
+            "locationId": source["locationId"],
+            "provider": source["provider"],
+            "connection": source["connection"],
+            "staleAfterSeconds": source["staleAfterSeconds"],
+            **snapshot,
+        })
+    return {
+        "receiverEnabled": bool(_station_config.get("integrations")),
+        "receiverStatus": _station_receiver_status,
+        "integrations": result,
+    }
+
+
+def start_station_receiver() -> ThreadingHTTPServer | None:
+    """Start a narrow inbound uploader only when explicitly enabled in config."""
+    global _station_config, _station_receiver_status
+    try:
+        _station_config = load_station_configuration()
+    except ValueError as error:
+        _station_config = {"receiver": {}, "integrations": []}
+        _station_receiver_status = f"error: {error}"
+        print(f"Local weather-station receiver configuration is invalid: {error}")
+        return None
+    integrations = _station_config["integrations"]
+    if not integrations:
+        _station_receiver_status = "disabled"
+        return None
+
+    by_ip = {str(source["sourceIp"]): str(source["id"]) for source in integrations}
+    upload_path = str(_station_config["receiver"]["path"])
+
+    class StationUploadHandler(BaseHTTPRequestHandler):
+        server_version = "DayglanceStation/1.0"
+
+        def handle_upload(self, values: dict[str, list[str]]) -> None:
+            source_id = by_ip.get(self.client_address[0])
+            if source_id is None:
+                self.send_error(403, "Unregistered weather station")
+                return
+            try:
+                observation = normalize_upload({key: items[-1] for key, items in values.items() if items})
+            except ValueError as error:
+                self.send_error(400, str(error))
+                return
+            with _station_lock:
+                _station_observations[source_id] = observation
+            body = b"success\n"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+            parsed = urlsplit(self.path)
+            if parsed.path != upload_path:
+                self.send_error(404, "Not found")
+                return
+            if len(parsed.query) > 8192:
+                self.send_error(413, "Station upload is too large")
+                return
+            try:
+                values = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=64)
+            except ValueError:
+                self.send_error(400, "Station upload has too many fields")
+                return
+            self.handle_upload(values)
+
+        def do_POST(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+            parsed = urlsplit(self.path)
+            if parsed.path != upload_path:
+                self.send_error(404, "Not found")
+                return
+            try:
+                size = int(self.headers.get("Content-Length", "0"))
+                if size <= 0 or size > 8192:
+                    raise ValueError
+                raw = self.rfile.read(size).decode("utf-8")
+            except (ValueError, UnicodeDecodeError):
+                self.send_error(400, "Invalid station upload body")
+                return
+            try:
+                values = parse_qs(raw, keep_blank_values=True, max_num_fields=64)
+            except ValueError:
+                self.send_error(400, "Station upload has too many fields")
+                return
+            self.handle_upload(values)
+
+        def log_message(self, format: str, *args: object) -> None:
+            # Never log station requests; upload query strings may contain provider fields.
+            return
+
+    class ReusableThreadingHTTPServer(ThreadingHTTPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+    receiver = _station_config["receiver"]
+    try:
+        server = ReusableThreadingHTTPServer((str(receiver["bindAddress"]), int(receiver["port"])), StationUploadHandler)
+    except OSError as error:
+        _station_receiver_status = f"error: {error}"
+        print(f"Local weather-station receiver could not start: {error}")
+        return None
+    _station_receiver_status = "listening"
+    return server
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -277,6 +474,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
         requested = unquote(urlsplit(self.path).path).lstrip("/") or "index.html"
+        if requested == "api/local-stations":
+            if not self.is_local_app_request():
+                self.send_error(403, "Station readings are restricted to the local Dayglance display")
+                return
+            self.send_json(200, station_status_payload())
+            return
         if requested == "api/device-settings":
             self.send_json(200, self.read_device_settings())
             return
@@ -516,6 +719,12 @@ def main() -> None:
     args = parser.parse_args()
 
     load_radar_usage()
+    station_server = start_station_receiver()
+    station_thread = None
+    if station_server is not None:
+        station_thread = threading.Thread(target=station_server.serve_forever, name="dayglance-local-station", daemon=True)
+        station_thread.start()
+        print(f"Local weather-station receiver listening at http://{station_server.server_address[0]}:{station_server.server_address[1]}")
     server = HTTPServer((args.host, args.port), Handler)
     print(f"Dayglance is available at http://{args.host}:{args.port}/ (Ctrl+C to stop)")
     try:
@@ -524,6 +733,11 @@ def main() -> None:
         print("\nStopping Dayglance server.")
     finally:
         server.server_close()
+        if station_server is not None:
+            station_server.shutdown()
+            station_server.server_close()
+            if station_thread is not None:
+                station_thread.join(timeout=2)
         try:
             flush_radar_usage()
         except OSError:

@@ -32,6 +32,19 @@
       "setup": "Create a Rainbow developer account, then enter its API key in Settings > Radar & Provider Account on the Pi's local screen.",
       "paidUsage": "Pay-as-you-go is disabled by default. Enable it explicitly in the local settings UI after checking the Rainbow account dashboard. The local free-allowance stop only counts this Dayglance server.",
       "documentation": "See RADAR.md for current free allowances, provider usage tracking, and pay-as-you-go rates."
+    },
+    "stationIntegrations": {
+      "meaning": "Each saved city may use at most one optional current-observation source. Integrations are separate from the forecast provider. The current adapter is Ambient Weather local-upload; the Settings UI assigns each configured source to one saved city.",
+      "connection": "For Ambient Weather, choose its customized/local server upload and either Ambient Weather or Weather Underground-compatible protocol. Point it at the Pi's private LAN address and stationReceiver port/path. Dayglance accepts uploads only from each sourceIp and stores the most recent observation in memory.",
+      "validInputs": "Each enabled entry needs a unique id, provider ambient-weather, connection local-upload, a private IPv4 sourceIp, and staleAfterSeconds from 30 to 3600. locationId may be null; choose the associated city in Settings. Never put account passwords or API keys here.",
+      "example": {"id":"backyard","name":"Backyard station","provider":"ambient-weather","connection":"local-upload","enabled":true,"sourceIp":"192.168.1.60","locationId":null,"staleAfterSeconds":600},
+      "limits": "An enabled source needs a DHCP reservation/static private IP. Bind Dayglance to the Pi's specific private interface address, keep the port on the trusted LAN, and do not forward it from the router. Local uploads are not archived; a restart clears the live reading until the next upload."
+    },
+    "stationReceiver": {
+      "meaning": "Network listener shared by enabled local station integrations. It accepts only the configured upload path and allowlisted private source IPs.",
+      "validInputs": "bindAddress must be the Pi's specific private IPv4 address (not 0.0.0.0 or loopback); port must be 1024-65535. Keep the default path unless the station upload form requires another one.",
+      "example": {"bindAddress":"192.168.1.50","port":8082,"path":"/weatherstation/updateweatherstation.php"},
+      "restart": "After changing stationReceiver or adding/enabling an integration in config.json, restart the Dayglance service. The browser Settings association applies immediately without a restart."
     }
   },
   "defaultLocation": null,
@@ -51,5 +64,11 @@
   "startup": {
     "autoStart": false,
     "kiosk": true
-  }
+  },
+  "stationReceiver": {
+    "bindAddress": "127.0.0.1",
+    "port": 8082,
+    "path": "/weatherstation/updateweatherstation.php"
+  },
+  "stationIntegrations": []
 }

@@ -26,7 +26,7 @@ Keep an essential way to leave a long scrolling screen within reach. A compact s
 
 ## Dayglance settings page
 
-The settings screen scrolls vertically by swiping over its content. It does not show a scrollbar; the settings panel remains keyboard-focusable and uses native touch scrolling plus drag-to-pan for touch panels that report gestures as mouse input. Its compact title and close control stay pinned while the options move beneath them. Test touch, mouse-like drag, wheel/trackpad where available, keyboard scrolling, click targets, and start-to-end scrolling separately.
+The settings screen scrolls vertically by swiping over its content. It does not show a scrollbar; the settings panel remains keyboard-focusable and uses native touch scrolling plus drag-to-pan for touch panels that report gestures as mouse input. Its compact title and close control stay pinned while the options move beneath them. When the panel itself has focus, Arrow Up/Down move in small increments, Page Up/Down move by most of the viewport, and Home/End reach the boundaries. Test touch, mouse-like drag, wheel/trackpad where available, keyboard scrolling, click targets, and start-to-end scrolling separately.
 
 ## Hourly detail positioning
 
