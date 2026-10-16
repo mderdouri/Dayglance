@@ -57,7 +57,9 @@ Each configured location needs a stable, unique `id` and can provide:
 - `query` and optional `countryCode`: location text to resolve through Open-Meteo's geocoder.
 - Or `latitude` and `longitude`: coordinates for a fixed location.
 
-`defaultLocation` is the first page shown on startup. Entries in `locations` are additional pages. Set `defaultLocation` to `null` and `locations` to `[]` to require first-launch setup. After changing the file, reload Dayglance. The browser clears cached forecasts for changed configured locations and resolves them again.
+`defaultLocation` is the first page shown on startup. Entries in `locations` are additional pages, displayed in their array order on a fresh browser profile. Set `defaultLocation` to `null` and `locations` to `[]` to require first-launch setup. After changing the file, reload Dayglance. The browser clears cached forecasts for changed configured locations and resolves them again.
+
+In **Settings → Locations**, the highlighted **Default · Fixed first** card identifies the city that opens first at startup; its fixed position explains why it has no reorder arrows. Select **Make default** on another saved city to move it into that position, then use the up/down buttons to order the remaining cities. These choices are saved in that browser profile and take precedence over the JSON order there. For keyboard-free setup, arrange the default and `locations` array in `config.json`; a fresh browser uses that order. No service restart is needed for Settings changes.
 
 Preference values are:
 

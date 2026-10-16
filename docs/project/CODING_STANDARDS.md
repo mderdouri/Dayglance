@@ -13,7 +13,7 @@ Dayglance is a small, dependency-light application intended to run on Raspberry 
 ## Runtime and accessibility
 
 - Preserve the app's compact landscape layout, including the 800×480 touchscreen target, and check that touch targets remain usable.
-- For touch-first layouts, prefer direct content swipes over scrollbar handles, particularly on small displays. Keep keyboard and native scrolling available, and do not make a visible scrollbar necessary to discover or use overflowing content. See [DESIGN_NOTES.md](DESIGN_NOTES.md).
+- For touch-first layouts, do not show scrollbars in the Dayglance interface, particularly on small displays. Keep overflow directly scrollable by swiping the content itself, with keyboard and native scrolling available. See [DESIGN_NOTES.md](DESIGN_NOTES.md).
 - For scroll behavior changes, separately check each applicable input path (touch swipe, mouse-like drag, wheel/trackpad, keyboard, and horizontal swipe), the correct direction and range, controls within the scroll surface, and any sticky navigation or interaction timer. Use the verification checklist in [DESIGN_NOTES.md](DESIGN_NOTES.md); report simulated and physical-device checks distinctly.
 - Use semantic HTML, visible focus states, accessible names for icon-only controls, and text alternatives for weather icons and state.
 - Do not prevent the operating system's screensaver or display sleep. On resume, refresh stale data without losing the user's current place in the app.

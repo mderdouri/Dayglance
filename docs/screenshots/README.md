@@ -22,6 +22,8 @@ All project screenshots are kept in this folder so they are easy to find and do 
 
 ![Settings with location and startup controls](dayglance-settings-location-first-20261015.png)
 
+![Settings showing a selectable default location and reorder controls](dayglance-location-order-settings-20261016.png)
+
 ![Settings showing the hourly view return timer and one-minute default](dayglance-hourly-timeout-settings-20261016.png)
 
 ![Vertically swipeable settings with a pinned close control](settings-touch-scroll.jpg)

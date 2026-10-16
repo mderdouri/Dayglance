@@ -99,6 +99,12 @@ class DeviceSettingsConfigTests(unittest.TestCase):
             self.assertIn("text/javascript", response.headers["Content-Type"])
             self.assertIn("DayglanceAirQuality", response.read().decode("utf-8"))
 
+    def test_location_order_helper_is_served_as_javascript(self):
+        with urlopen(self.base + "location-order.js", timeout=3) as response:
+            self.assertEqual(response.status, 200)
+            self.assertIn("text/javascript", response.headers["Content-Type"])
+            self.assertIn("DayglanceLocationOrder", response.read().decode("utf-8"))
+
     def test_device_file_overrides_config_defaults(self):
         self.config_path.write_text(json.dumps({"startup": {"autoStart": True, "kiosk": False}}), encoding="utf-8")
         self.settings_path.write_text(json.dumps({"autoStart": False, "kiosk": True}), encoding="utf-8")

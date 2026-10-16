@@ -30,6 +30,7 @@ FILES = {
     "app.js": "text/javascript; charset=utf-8",
     "air-quality.js": "text/javascript; charset=utf-8",
     "detail-hours.js": "text/javascript; charset=utf-8",
+    "location-order.js": "text/javascript; charset=utf-8",
     "radar.js": "text/javascript; charset=utf-8",
     "styles.css": "text/css; charset=utf-8",
     "manifest.webmanifest": "application/manifest+json; charset=utf-8",

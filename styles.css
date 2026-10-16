@@ -34,4 +34,23 @@
 @media(max-width:650px){.radar-screen{inset:48px 0 0}.radar-controls{gap:5px}.radar-mode .small-action{padding:0 7px;font-size:9px}.radar-frame-time{font-size:9px}}
 @media(max-height:420px){.radar-screen{inset:42px 0 0;padding-top:4px}.radar-heading{padding-bottom:3px}.radar-controls{padding:2px}.radar-mode .small-action{min-height:28px!important}.radar-map{min-height:60px}}
 .radar-settings .paid-usage-row{margin-top:8px}.paid-usage-row>span{display:grid;gap:3px}.paid-usage-row button{min-width:116px}.paid-usage-row button[aria-pressed="true"]{border-color:#e5c8bd;background:#fff4ee;color:#9a4a2e}.paid-usage-row button:disabled{opacity:.5;cursor:not-allowed}
+.setup{display:block;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y pinch-zoom;padding:12px 20px}
+.setup-card{max-height:none;overflow:visible;margin:0 auto}
+.search-results{overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y pinch-zoom}
+.settings-location-row{align-items:flex-start;flex-wrap:wrap;padding:7px 0}
+.settings-location-actions{flex-wrap:wrap;justify-content:flex-end;max-width:100%}
+.location-order-button{width:44px;min-height:44px;padding:0;font-size:20px}
+.location-order-button:disabled{opacity:.35;cursor:default;pointer-events:none}
+.location-order-help{margin:5px 0 0}
+.search-results:focus-visible{outline:3px solid #8dbfcb;outline-offset:2px}
+.content-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
+html *{scrollbar-width:none!important;-ms-overflow-style:none!important}
+html *::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+@media(max-height:520px){.setup-card .search-results{max-height:90px}}
+.default-location-row{margin:4px 0 8px;padding:10px 11px;border:1px solid #b9d5da;border-left:4px solid #4c8798;border-radius:10px;background:linear-gradient(105deg,#edf6f6 0%,#fff 78%)}
+.default-location-main{flex:1;display:grid;gap:4px;min-width:0}
+.default-location-label{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+.default-location-badge{padding:3px 7px;border:1px solid #bdd6db;border-radius:999px;background:#e4f0f1;color:#356a77;font-size:8px;font-weight:800;letter-spacing:.04em;white-space:nowrap}
+.default-location-row strong{font-size:14px}
+.default-location-help{color:#58717a;font-size:9px;line-height:1.35}
 

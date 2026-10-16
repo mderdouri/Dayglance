@@ -2,7 +2,7 @@
 
 ## Touch-first scrolling
 
-When designing for a touchscreen, especially a small display such as an 800×480 Pi panel, make the content itself the scroll surface. Prefer a natural finger swipe or pan over a dedicated scrollbar handle; do not require a scrollbar to find, reach, or understand content beyond the visible area. Hide decorative scrollbars when the gesture and content layout make scrolling clear.
+When designing for a touchscreen, especially a small display such as an 800×480 Pi panel, make the content itself the scroll surface. Prefer a natural finger swipe or pan over a dedicated scrollbar handle; do not require a scrollbar to find, reach, or understand content beyond the visible area. Do not show scrollbars in the Dayglance interface; hide them consistently while keeping the underlying content directly scrollable. For autocomplete, the suggestion list itself must accept a swipe or pan so users can browse results without targeting a narrow scrollbar. A scrollbar must never be required to reach content.
 
 Use native browser scrolling where possible, with the correct gesture direction (`pan-y` for vertical pages and `pan-x` for horizontal strips). Keep keyboard scrolling, visible focus, accessible labels, and sufficiently large controls. Add buttons as an optional alternative when they improve discoverability or accessibility, not as a substitute for direct touch interaction. Test at the target resolution and on the actual touchscreen when available.
 
