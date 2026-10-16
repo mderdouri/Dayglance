@@ -22,6 +22,10 @@ This interface preview uses simulated forecast values; it demonstrates the locat
 
 ![Hourly detail view showing the 24-hour strip](hourly-view.jpg)
 
+![Hourly detail view with touch scrolling and the optional arrow bumpers hidden by default](hourly-view-bumpers-off-20261016.png)
+
+This 800×480 browser preview uses synthetic hourly data; it shows the default view without arrow bumpers. Swipe, drag, and scrolling remain available.
+
 ![Today's hourly detail starting at the current hour](dayglance-hourly-today-20261015.png)
 
 ## Setup and settings

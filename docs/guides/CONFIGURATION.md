@@ -42,7 +42,7 @@ Edit or copy `config.json` into the project root before starting Dayglance. Its 
     "temperatureGraphRange": "day",
     "autoScrollLocations": false,
     "autoScrollIntervalSeconds": 30,
-    "showBumpers": true
+    "showBumpers": false
   },
   "startup": {
     "autoStart": false,
@@ -87,7 +87,7 @@ Preference values are:
 - `temperatureGraphRange`: `day` for the next 24 hours, `week` for a 7-day forecast, `forecast16` for up to 16 forecast days, or `history30` for 30 days of archived past-days data ending today. The history range is not a long-range forecast and is not guaranteed to be station-observed data.
 - `autoScrollLocations`: `true` automatically rotates through saved locations when at least two exist; `false` leaves location changes manual. The rotation loops between saved cities and never opens the add-location page.
 - `autoScrollIntervalSeconds`: `30`, `60`, `300`, or `900` seconds on each location (30 seconds, 1 minute, 5 minutes, or 15 minutes). Used only when auto-scroll is enabled.
-- `showBumpers`: `true` to show the optional hourly left/right buttons, or `false` to hide them. Hourly cards remain swipeable/scrollable either way.
+- `showBumpers`: `false` by default to keep the hourly view uncluttered. Set to `true` to show optional left/right buttons; hourly cards remain swipeable/scrollable either way.
 
 The temperature graph period can also be changed in **Settings → Weather & display**. The 16-day view requests the provider's maximum forecast horizon. The 30-day view requests the past 29 days plus today and displays daily highs and lows from Open-Meteo's archived past-days feature. Availability and archive coverage depend on the provider. Switching graph periods does not require a service restart.
 

@@ -5,7 +5,7 @@ const GEOCODE_API = 'https://geocoding-api.open-meteo.com/v1/search';
 const AIR_QUALITY_API = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 const FALLBACK_CONFIG = {defaultLocation:null,locations:[]};
 const hourlyWindow = window.DayglanceHourlyWindow;
-const DEFAULT_PREFERENCES = {returnAfterSeconds:60,radarIdleTimeoutSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,showBumpers:true,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30};
+const DEFAULT_PREFERENCES = {returnAfterSeconds:60,radarIdleTimeoutSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,showBumpers:false,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30};
 const $ = selector => document.querySelector(selector);
 const setup = $('#setup');
 const dashboard = $('#dashboard');
@@ -188,7 +188,7 @@ async function initialize(){
   if(!['day','week','forecast16','history30'].includes(preferences.temperatureGraphRange))preferences.temperatureGraphRange=DEFAULT_PREFERENCES.temperatureGraphRange;
   preferences.autoScrollLocations=preferences.autoScrollLocations===true;
   if(![30,60,300,900].includes(Number(preferences.autoScrollIntervalSeconds)))preferences.autoScrollIntervalSeconds=DEFAULT_PREFERENCES.autoScrollIntervalSeconds;else preferences.autoScrollIntervalSeconds=Number(preferences.autoScrollIntervalSeconds);
-  preferences.showBumpers=preferences.showBumpers!==false;
+  preferences.showBumpers=preferences.showBumpers===true;
   // Preserve a location the owner explicitly edited in the earlier preset-based version.
   try{const previous=JSON.parse(stored.configSignature||'[]')[0];if(!config.defaultLocation&&!saved.defaultLocation&&previous?.id&&saved.overrides[previous.id])saved.defaultLocation={...saved.overrides[previous.id],source:'user'}}catch{}
   if(stored.configSignature&&stored.configSignature!==signature){
