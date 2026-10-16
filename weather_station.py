@@ -69,6 +69,36 @@ def normalize_upload(values: Mapping[str, object], received_at: float | None = N
     return observation
 
 
+def normalize_weather_company_pws(record: Mapping[str, object], received_at: float | None = None) -> dict[str, object]:
+    """Convert The Weather Company's current PWS record into Dayglance units."""
+    imperial = record.get("imperial", {})
+    if not isinstance(imperial, Mapping):
+        imperial = {}
+    values: dict[str, object] = {
+        "tempf": imperial.get("temp"),
+        "humidity": record.get("humidity"),
+        "winddir": record.get("winddir"),
+        "windspeedmph": imperial.get("windSpeed"),
+        "windgustmph": imperial.get("windGust"),
+        "rainin": imperial.get("precipRate"),
+        "dailyrainin": imperial.get("precipTotal"),
+        "baromin": imperial.get("pressure"),
+        "uv": record.get("uv"),
+        "solarradiation": record.get("solarRadiation"),
+        "dewptf": imperial.get("dewpt"),
+    }
+    epoch = record.get("epoch")
+    try:
+        if epoch is not None:
+            values["dateutc"] = datetime.fromtimestamp(float(epoch), timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            timestamp = str(record.get("obsTimeUtc", "")).strip().replace("Z", "+00:00")
+            values["dateutc"] = datetime.fromisoformat(timestamp).astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError, OverflowError, OSError) as error:
+        raise ValueError("Weather Company observation has an invalid UTC timestamp") from error
+    return normalize_upload(values, received_at=received_at)
+
+
 def freshness(observation: Mapping[str, object] | None, stale_after_seconds: int, now: float | None = None) -> dict[str, object]:
     """Add age and freshness metadata without mutating the in-memory sample."""
     if not observation:

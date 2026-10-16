@@ -6,3 +6,4 @@ __pycache__/
 device-settings.json
 device-radar-key.json
 device-radar-usage.json
+device-station-credentials.json

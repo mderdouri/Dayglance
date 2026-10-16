@@ -169,7 +169,7 @@ function normalizeConfigLocation(area,index){
 async function initialize(){
   let config=FALLBACK_CONFIG;
   try{const response=await fetch(CONFIG_URL,{cache:'no-store'});if(response.ok){const candidate=await response.json();if(candidate&&Object.hasOwn(candidate,'defaultLocation'))config=candidate}}catch{}
-  stationIntegrations=Array.isArray(config.stationIntegrations)?config.stationIntegrations.filter(source=>source&&source.enabled===true&&source.provider==='ambient-weather'&&source.connection==='local-upload'&&typeof source.id==='string'):[];
+  stationIntegrations=Array.isArray(config.stationIntegrations)?config.stationIntegrations.filter(source=>source&&source.enabled===true&&((source.provider==='ambient-weather'&&['local-upload','cloud-api'].includes(source.connection))||(source.provider==='weather-underground'&&source.connection==='cloud-api'))&&typeof source.id==='string'):[];
   const configPreferences=config.preferences&&typeof config.preferences==='object'&&!Array.isArray(config.preferences)?Object.fromEntries(Object.entries(config.preferences).filter(([key])=>Object.hasOwn(DEFAULT_PREFERENCES,key))):{};
   configuredLocations=[normalizeConfigLocation(config.defaultLocation,0),...(config.locations||[]).map((area,index)=>normalizeConfigLocation(area,index+1))].filter(Boolean);
   const stored=readSaved(),signature=configSignature(config);
@@ -599,7 +599,7 @@ function renderStationSettings(){
     const sample=stationSamples[source.id];
     const age=sample?.available?Number(sample.ageSeconds||0)+Math.max(0,Math.floor((Date.now()-sample.clientReceivedAt)/1000)):null;
     const fresh=sample?.fresh&&age<=Number(sample.staleAfterSeconds||600);
-    const status=document.createElement('small');status.textContent=stationReceiverStatus.startsWith('error:')?`Receiver error · ${stationReceiverStatus.slice(7)}`:stationReceiverStatus==='unreachable'?'Unable to read station receiver status':fresh?`Receiving data · ${age<60?'just now':`${Math.floor(age/60)} min ago`}`:sample?.available?'Last reading is stale':'Waiting for first reading';
+    const status=document.createElement('small');status.textContent=stationReceiverStatus.startsWith('error:')&&source.connection==='local-upload'?`Receiver error · ${stationReceiverStatus.slice(7)}`:stationReceiverStatus==='unreachable'?'Unable to read station receiver status':fresh?`Receiving data · ${age<60?'just now':`${Math.floor(age/60)} min ago`}`:sample?.available?'Last reading is stale':sample?.status||'Waiting for first reading';
     label.append(name,status);
     const select=document.createElement('select');select.setAttribute('aria-label',`City for ${source.name||'local weather station'}`);
     const unassigned=document.createElement('option');unassigned.value='';unassigned.textContent='Not assigned to a city';select.append(unassigned);

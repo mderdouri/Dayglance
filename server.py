@@ -17,13 +17,18 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, unquote, urlsplit
 from urllib.request import Request, urlopen
 
-from weather_station import freshness as station_freshness, normalize_upload
+from weather_station import (
+    freshness as station_freshness,
+    normalize_upload,
+    normalize_weather_company_pws,
+)
 
 
 ROOT = Path(__file__).resolve().parent
 DEVICE_SETTINGS_PATH = ROOT / "device-settings.json"
 RADAR_CREDENTIALS_PATH = ROOT / "device-radar-key.json"
 RADAR_USAGE_PATH = ROOT / "device-radar-usage.json"
+STATION_CREDENTIALS_PATH = ROOT / "device-station-credentials.json"
 CONFIG_PATH = ROOT / "config.json"
 AUTOSTART_PATH = Path.home() / ".config" / "autostart" / "dayglance.desktop"
 STARTUP_SUPPORTED = sys.platform.startswith("linux")
@@ -49,6 +54,8 @@ _station_lock = threading.Lock()
 _station_observations: dict[str, dict[str, object]] = {}
 _station_config: dict[str, object] = {"receiver": {}, "integrations": []}
 _station_receiver_status = "disabled"
+_station_source_status: dict[str, str] = {}
+_station_cloud_stop = threading.Event()
 
 
 def read_radar_key() -> str:
@@ -147,7 +154,7 @@ def save_paid_usage_setting(enabled: bool) -> None:
 
 
 def load_station_configuration() -> dict[str, object]:
-    """Read and validate city-scoped local station upload definitions."""
+    """Read and validate city-scoped local and cloud station definitions."""
     try:
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     except (OSError, ValueError, json.JSONDecodeError):
@@ -184,45 +191,206 @@ def load_station_configuration() -> dict[str, object]:
         ids.add(source_id)
         if location_id:
             linked_locations.add(location_id)
-        if source.get("provider") != "ambient-weather" or source.get("connection") != "local-upload":
-            raise ValueError(f"Unsupported station adapter for {source_id!r}; currently use ambient-weather/local-upload")
+        provider, connection = source.get("provider"), source.get("connection")
+        supported = provider == "ambient-weather" and connection in ("local-upload", "cloud-api")
+        supported = supported or (provider == "weather-underground" and connection == "cloud-api")
+        if not supported:
+            raise ValueError(f"Unsupported station adapter for {source_id!r}; use ambient-weather local-upload/cloud-api or weather-underground cloud-api")
         try:
-            source_ip = ipaddress.ip_address(str(source.get("sourceIp", "")))
-            bind_ip = ipaddress.ip_address(str(receiver["bindAddress"]))
-            port = int(receiver["port"])
             stale_after = int(source.get("staleAfterSeconds", 600))
         except (ValueError, TypeError) as error:
-            raise ValueError(f"Invalid network or timeout setting for station {source_id!r}") from error
-        if source_ip.version != 4 or not source_ip.is_private or source_ip.is_loopback:
-            raise ValueError(f"Station {source_id!r} sourceIp must be a private IPv4 address")
-        if str(source_ip) in source_ips:
-            raise ValueError("Each enabled local station must have a unique sourceIp")
-        source_ips.add(str(source_ip))
-        if bind_ip.version != 4 or not bind_ip.is_private or bind_ip.is_loopback or bind_ip.is_unspecified:
-            raise ValueError("Enabled stationReceiver.bindAddress must be the Pi's specific private IPv4 address")
-        if not 1024 <= port <= 65535:
-            raise ValueError("stationReceiver.port must be between 1024 and 65535")
-        path = receiver["path"]
-        if not isinstance(path, str) or not path.startswith("/") or "?" in path or ".." in path or len(path) > 160:
-            raise ValueError("stationReceiver.path must be a short absolute URL path without query or traversal")
+            raise ValueError(f"Station {source_id!r} staleAfterSeconds must be an integer") from error
+        local_source_ip = None
+        if connection == "local-upload":
+            try:
+                source_ip = ipaddress.ip_address(str(source.get("sourceIp", "")))
+                bind_ip = ipaddress.ip_address(str(receiver["bindAddress"]))
+                port = int(receiver["port"])
+            except (ValueError, TypeError) as error:
+                raise ValueError(f"Invalid network setting for station {source_id!r}") from error
+            if source_ip.version != 4 or not source_ip.is_private or source_ip.is_loopback:
+                raise ValueError(f"Station {source_id!r} sourceIp must be a private IPv4 address")
+            if str(source_ip) in source_ips:
+                raise ValueError("Each enabled local station must have a unique sourceIp")
+            source_ips.add(str(source_ip))
+            if bind_ip.version != 4 or not bind_ip.is_private or bind_ip.is_loopback or bind_ip.is_unspecified:
+                raise ValueError("Enabled stationReceiver.bindAddress must be the Pi's specific private IPv4 address")
+            if not 1024 <= port <= 65535:
+                raise ValueError("stationReceiver.port must be between 1024 and 65535")
+            path = receiver["path"]
+            if not isinstance(path, str) or not path.startswith("/") or "?" in path or ".." in path or len(path) > 160:
+                raise ValueError("stationReceiver.path must be a short absolute URL path without query or traversal")
+            local_source_ip = str(source_ip)
+        elif provider == "ambient-weather":
+            device_id = source.get("deviceId")
+            credentials_id = source.get("credentialsId", source_id)
+            normalized_device_id = str(device_id or "").replace(":", "").replace("-", "")
+            if len(normalized_device_id) != 12 or any(char not in "0123456789abcdefABCDEF" for char in normalized_device_id):
+                raise ValueError(f"Cloud station {source_id!r} needs deviceId as a 12-digit hexadecimal Ambient MAC address")
+            if not isinstance(credentials_id, str) or not credentials_id.strip() or len(credentials_id) > 80:
+                raise ValueError(f"Cloud station {source_id!r} needs a short credentialsId")
+            device_id = str(device_id).strip()
+        else:
+            station_id = source.get("stationId")
+            credentials_id = source.get("credentialsId", source_id)
+            if not isinstance(station_id, str) or not 3 <= len(station_id.strip()) <= 32 or not station_id.replace("-", "").isalnum():
+                raise ValueError(f"Weather Underground station {source_id!r} needs a valid stationId")
+            if not isinstance(credentials_id, str) or not credentials_id.strip() or len(credentials_id) > 80:
+                raise ValueError(f"Cloud station {source_id!r} needs a short credentialsId")
+            station_id = station_id.strip()
         if not 30 <= stale_after <= 3600:
             raise ValueError(f"Station {source_id!r} staleAfterSeconds must be between 30 and 3600")
-        integrations.append({
+        integration = {
             "id": source_id,
             "name": str(source.get("name") or "Local weather station")[:80],
             "locationId": location_id,
-            "sourceIp": str(source_ip),
-            "provider": "ambient-weather",
-            "connection": "local-upload",
+            "provider": provider,
+            "connection": connection,
             "staleAfterSeconds": stale_after,
-        })
+        }
+        if local_source_ip:
+            integration["sourceIp"] = local_source_ip
+        elif provider == "ambient-weather":
+            integration["deviceId"] = device_id
+            integration["credentialsId"] = credentials_id.strip()
+        else:
+            integration["stationId"] = station_id
+            integration["credentialsId"] = credentials_id.strip()
+        integrations.append(integration)
 
     return {"receiver": receiver, "integrations": integrations}
+
+
+def read_station_credentials() -> dict[str, object]:
+    """Read secrets for cloud adapters from the private, device-local file."""
+    try:
+        data = json.loads(STATION_CREDENTIALS_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def refresh_ambient_weather_cloud_once() -> None:
+    """Refresh each configured Ambient Weather account once without exposing its keys."""
+    global _station_source_status
+    credential_file = read_station_credentials()
+    cloud_sources = [source for source in _station_config.get("integrations", []) if source["provider"] == "ambient-weather" and source["connection"] == "cloud-api"]
+    credentials = credential_file.get("ambientWeatherAccounts", {})
+    groups: dict[tuple[str, str], list[dict[str, object]]] = {}
+    next_status: dict[str, str] = {}
+    for source in cloud_sources:
+        account = credentials.get(source["credentialsId"], {}) if isinstance(credentials, dict) else {}
+        api_key = account.get("apiKey", "") if isinstance(account, dict) else ""
+        application_key = account.get("applicationKey", "") if isinstance(account, dict) else ""
+        if not isinstance(api_key, str) or not api_key.strip() or not isinstance(application_key, str) or not application_key.strip():
+            next_status[source["id"]] = "Credentials not configured"
+            continue
+        groups.setdefault((api_key.strip(), application_key.strip()), []).append(source)
+
+    for (api_key, application_key), sources in groups.items():
+        query = urlencode({"apiKey": api_key, "applicationKey": application_key})
+        request = Request(f"https://rt.ambientweather.net/v1/devices?{query}", headers={"User-Agent": "Dayglance/1.0"})
+        try:
+            with urlopen(request, timeout=12) as response:
+                devices = json.loads(response.read(1_000_000))
+            if not isinstance(devices, list):
+                raise ValueError("Unexpected provider response")
+            devices_by_mac = {
+                str(device.get("macAddress", "")).replace(":", "").replace("-", "").lower(): device
+                for device in devices if isinstance(device, dict)
+            }
+            for source in sources:
+                device = devices_by_mac.get(str(source["deviceId"]).replace(":", "").replace("-", "").lower())
+                if not device:
+                    next_status[source["id"]] = "Station not found in Ambient Weather account"
+                    continue
+                data = device.get("lastData", {})
+                if not isinstance(data, dict):
+                    next_status[source["id"]] = "No current station reading"
+                    continue
+                upload = dict(data)
+                epoch_ms = upload.get("dateutc")
+                if isinstance(epoch_ms, (int, float)):
+                    upload["dateutc"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(float(epoch_ms) / 1000))
+                observation = normalize_upload(upload)
+                with _station_lock:
+                    _station_observations[source["id"]] = observation
+                next_status[source["id"]] = "Connected to Ambient Weather"
+        except HTTPError as error:
+            error.close()
+            safe_status = "Ambient Weather rejected the credentials" if error.code in (401, 403) else "Ambient Weather request failed"
+            for source in sources:
+                next_status[source["id"]] = safe_status
+        except (URLError, TimeoutError, OSError, ValueError, TypeError, OverflowError):
+            for source in sources:
+                next_status[source["id"]] = "Ambient Weather unavailable or returned invalid data"
+    with _station_lock:
+        _station_source_status.update(next_status)
+
+
+def refresh_weather_underground_cloud_once() -> None:
+    """Fetch current observations for configured Weather Underground PWS IDs."""
+    global _station_source_status
+    sources = [source for source in _station_config.get("integrations", []) if source["provider"] == "weather-underground" and source["connection"] == "cloud-api"]
+    if not sources:
+        return
+    credential_map = read_station_credentials().get("weatherUndergroundAccounts", {})
+    next_status: dict[str, str] = {}
+    for source in sources:
+        account = credential_map.get(source["credentialsId"], {}) if isinstance(credential_map, dict) else {}
+        api_key = account.get("apiKey", "") if isinstance(account, dict) else ""
+        if not isinstance(api_key, str) or not api_key.strip():
+            next_status[source["id"]] = "Weather Company API key not configured"
+            continue
+        query = urlencode({
+            "stationId": source["stationId"],
+            "format": "json",
+            "units": "e",
+            "numericPrecision": "decimal",
+            "apiKey": api_key.strip(),
+        })
+        request = Request(f"https://api.weather.com/v2/pws/observations/current?{query}", headers={"User-Agent": "Dayglance/1.0"})
+        try:
+            with urlopen(request, timeout=12) as response:
+                payload = json.loads(response.read(1_000_000))
+            observations = payload.get("observations", []) if isinstance(payload, dict) else []
+            if not isinstance(observations, list) or not observations or not isinstance(observations[0], dict):
+                next_status[source["id"]] = "No current reading from Weather Underground"
+                continue
+            observation = normalize_weather_company_pws(observations[0])
+            with _station_lock:
+                _station_observations[source["id"]] = observation
+            next_status[source["id"]] = "Connected to Weather Underground"
+        except HTTPError as error:
+            error.close()
+            next_status[source["id"]] = "Weather Company rejected the key or station access" if error.code in (401, 403) else "Weather Company request failed"
+        except (URLError, TimeoutError, OSError, ValueError, TypeError, OverflowError):
+            next_status[source["id"]] = "Weather Company unavailable or returned invalid data"
+    with _station_lock:
+        _station_source_status.update(next_status)
+
+
+def poll_cloud_station_data() -> None:
+    """Poll configured cloud providers once a minute and reuse their latest samples."""
+    while not _station_cloud_stop.is_set():
+        refresh_ambient_weather_cloud_once()
+        refresh_weather_underground_cloud_once()
+        _station_cloud_stop.wait(60)
+
+
+def start_station_cloud_poller() -> threading.Thread | None:
+    if not any(source["connection"] == "cloud-api" for source in _station_config.get("integrations", [])):
+        return None
+    _station_cloud_stop.clear()
+    thread = threading.Thread(target=poll_cloud_station_data, name="dayglance-station-cloud", daemon=True)
+    thread.start()
+    return thread
 
 
 def station_status_payload() -> dict[str, object]:
     with _station_lock:
         observations = dict(_station_observations)
+        source_status = dict(_station_source_status)
     result = []
     for source in _station_config.get("integrations", []):
         snapshot = station_freshness(observations.get(source["id"]), int(source["staleAfterSeconds"]))
@@ -233,10 +401,11 @@ def station_status_payload() -> dict[str, object]:
             "provider": source["provider"],
             "connection": source["connection"],
             "staleAfterSeconds": source["staleAfterSeconds"],
+            "status": source_status.get(source["id"], "Waiting for first reading"),
             **snapshot,
         })
     return {
-        "receiverEnabled": bool(_station_config.get("integrations")),
+        "receiverEnabled": any(source["connection"] == "local-upload" for source in _station_config.get("integrations", [])),
         "receiverStatus": _station_receiver_status,
         "integrations": result,
     }
@@ -253,11 +422,12 @@ def start_station_receiver() -> ThreadingHTTPServer | None:
         print(f"Local weather-station receiver configuration is invalid: {error}")
         return None
     integrations = _station_config["integrations"]
-    if not integrations:
+    local_integrations = [source for source in integrations if source["connection"] == "local-upload"]
+    if not local_integrations:
         _station_receiver_status = "disabled"
         return None
 
-    by_ip = {str(source["sourceIp"]): str(source["id"]) for source in integrations}
+    by_ip = {str(source["sourceIp"]): str(source["id"]) for source in local_integrations}
     upload_path = str(_station_config["receiver"]["path"])
 
     class StationUploadHandler(BaseHTTPRequestHandler):
@@ -720,6 +890,7 @@ def main() -> None:
 
     load_radar_usage()
     station_server = start_station_receiver()
+    station_cloud_thread = start_station_cloud_poller()
     station_thread = None
     if station_server is not None:
         station_thread = threading.Thread(target=station_server.serve_forever, name="dayglance-local-station", daemon=True)
@@ -738,6 +909,9 @@ def main() -> None:
             station_server.server_close()
             if station_thread is not None:
                 station_thread.join(timeout=2)
+        if station_cloud_thread is not None:
+            _station_cloud_stop.set()
+            station_cloud_thread.join(timeout=2)
         try:
             flush_radar_usage()
         except OSError:
