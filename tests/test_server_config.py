@@ -2,6 +2,7 @@
 
 import io
 import json
+import os
 import sys
 import tempfile
 import threading
@@ -29,6 +30,8 @@ class DeviceSettingsConfigTests(unittest.TestCase):
         cls.settings_path = root / "device-settings.json"
         cls.radar_key_path = root / "device-radar-key.json"
         cls.radar_usage_path = root / "device-radar-usage.json"
+        cls.station_settings_path = root / "device-station-settings.json"
+        cls.station_credentials_path = root / "device-station-credentials.json"
         cls.autostart_path = root / "autostart" / "dayglance.desktop"
         cls.labwc_autostart_path = cls.home / ".config" / "labwc" / "autostart"
         cls.patches = [
@@ -36,6 +39,8 @@ class DeviceSettingsConfigTests(unittest.TestCase):
             patch.object(server, "DEVICE_SETTINGS_PATH", cls.settings_path),
             patch.object(server, "RADAR_CREDENTIALS_PATH", cls.radar_key_path),
             patch.object(server, "RADAR_USAGE_PATH", cls.radar_usage_path),
+            patch.object(server, "STATION_SETTINGS_PATH", cls.station_settings_path),
+            patch.object(server, "STATION_CREDENTIALS_PATH", cls.station_credentials_path),
             patch.object(server, "AUTOSTART_PATH", cls.autostart_path),
             patch.object(server, "STARTUP_SUPPORTED", True),
             patch.dict("os.environ", {"HOME": str(cls.home), "XDG_CURRENT_DESKTOP": "labwc:wlroots"}),
@@ -61,6 +66,11 @@ class DeviceSettingsConfigTests(unittest.TestCase):
         self.settings_path.unlink(missing_ok=True)
         self.radar_key_path.unlink(missing_ok=True)
         self.radar_usage_path.unlink(missing_ok=True)
+        self.station_settings_path.unlink(missing_ok=True)
+        self.station_credentials_path.unlink(missing_ok=True)
+        server._station_config = {"receiver": {}, "integrations": []}
+        server._station_observations.clear()
+        server._station_source_status.clear()
         server._usage_state.update({"month": "", "tiles": 0, "nowcast": 0, "allowPaidUsage": False})
         server._usage_last_write = 0.0
         self.autostart_path.unlink(missing_ok=True)
@@ -105,16 +115,112 @@ class DeviceSettingsConfigTests(unittest.TestCase):
             page = response.read().decode("utf-8")
         settings = page.split('id="station-settings"', 1)[1].split("</section>", 1)[0]
         self.assertNotIn("hidden", settings.split(">", 1)[0])
-        providers = settings.split('<div class="station-supported-options"', 1)[1].split('<div id="station-integrations-list"', 1)[0]
-        self.assertIn("Ambient Weather", providers)
-        self.assertIn("Local upload · Cloud API", providers)
-        self.assertIn("Weather Underground PWS", providers)
-        self.assertIn("Config file · read-only", providers)
-        self.assertIn("Reference only—these are not input fields", providers)
-        self.assertNotIn("<input", providers)
-        self.assertNotIn("<select", providers)
-        self.assertNotIn("<button", providers)
-        self.assertIn("device-station-credentials.json", settings)
+        self.assertIn("Provider key profiles", settings)
+        self.assertIn("Add or edit a cloud station", settings)
+        self.assertIn('type="password"', settings)
+        self.assertIn("Local uploads are still configured through", settings)
+        self.assertIn("Cloud changes apply live", settings)
+        self.assertIn("From config.json", settings)
+
+    def test_station_manager_accepts_multiple_cities_and_stores_device_settings(self):
+        sources = []
+        for index in range(1, 11):
+            if index <= 5:
+                sources.append({"id": f"ambient-{index}", "name": f"Station {index}", "provider": "ambient-weather",
+                                "connection": "cloud-api", "deviceId": f"00:11:22:33:44:{index:02d}",
+                                "credentialsId": "Home account", "locationId": f"city-{index}", "staleAfterSeconds": 600})
+            else:
+                sources.append({"id": f"pws-{index}", "name": f"Station {index}", "provider": "weather-underground",
+                                "connection": "cloud-api", "stationId": f"KDCWASH{index:04d}",
+                                "credentialsId": "Weather Company", "locationId": f"city-{index}", "staleAfterSeconds": 600})
+        status, data = self.request(json.dumps({"integrations": sources}).encode(), path="api/station-settings")
+        self.assertEqual(status, 200)
+        self.assertEqual(len(data["integrations"]), 10)
+        self.assertTrue(all(source["managed"] for source in data["integrations"]))
+        self.assertEqual(len(json.loads(self.station_settings_path.read_text())["integrations"]), 10)
+        self.assertTrue(all(source["connection"] == "cloud-api" for source in server._station_config["integrations"]))
+
+    def test_station_manager_settings_are_loaded_again_after_restart(self):
+        source = {"id": "cloud-home", "name": "Home station", "provider": "weather-underground",
+                  "connection": "cloud-api", "stationId": "KDC123", "credentialsId": "PWS account",
+                  "locationId": "home", "staleAfterSeconds": 600}
+        status, _ = self.request(json.dumps({"integrations": [source]}).encode(), path="api/station-settings")
+        self.assertEqual(status, 200)
+        reloaded = server.load_station_configuration()
+        self.assertEqual(len(reloaded["integrations"]), 1)
+        self.assertEqual(reloaded["integrations"][0]["id"], "cloud-home")
+        self.assertTrue(reloaded["integrations"][0]["managed"])
+
+    def test_config_defined_station_cannot_become_device_managed(self):
+        config_source = {"id": "config-home", "name": "Configured station", "provider": "weather-underground",
+                         "connection": "cloud-api", "enabled": True, "stationId": "KDC123",
+                         "credentialsId": "PWS account", "locationId": "home", "managed": True}
+        self.config_path.write_text(json.dumps({"stationIntegrations": [config_source]}), encoding="utf-8")
+        loaded = server.load_station_configuration(managed_override=[])
+        self.assertEqual(len(loaded["integrations"]), 1)
+        self.assertFalse(loaded["integrations"][0]["managed"])
+
+    def test_station_key_profiles_are_saved_privately_and_never_returned(self):
+        secret = "test-ambient-api-key-123456"
+        payload = {"provider": "ambient-weather", "id": "Home", "apiKey": secret, "applicationKey": "test-app-key-123456"}
+        status, data = self.request(json.dumps(payload).encode(), path="api/station-credentials")
+        self.assertEqual(status, 200)
+        self.assertNotIn(secret, json.dumps(data))
+        self.assertEqual(json.loads(self.station_credentials_path.read_text())["ambientWeatherAccounts"]["Home"]["apiKey"], secret)
+        status, metadata = self.request(path="api/station-settings")
+        self.assertEqual(status, 200)
+        self.assertIn({"provider": "ambient-weather", "id": "Home", "configured": True}, metadata["profiles"])
+        self.assertNotIn(secret, json.dumps(metadata))
+        if os.name == "posix":
+            self.assertEqual(self.station_credentials_path.stat().st_mode & 0o777, 0o600)
+
+    def test_station_manager_rejects_duplicate_city_and_local_upload(self):
+        sources = [
+            {"id": "one", "provider": "weather-underground", "connection": "cloud-api", "stationId": "KDC123", "credentialsId": "wu", "locationId": "same-city"},
+            {"id": "two", "provider": "weather-underground", "connection": "cloud-api", "stationId": "KDC124", "credentialsId": "wu", "locationId": "same-city"},
+        ]
+        status, _ = self.request(json.dumps({"integrations": sources}).encode(), path="api/station-settings")
+        self.assertEqual(status, 400)
+        self.assertFalse(self.station_settings_path.exists())
+        status, _ = self.request(json.dumps({"integrations": [{"id": "local", "provider": "ambient-weather", "connection": "local-upload"}]}).encode(), path="api/station-settings")
+        self.assertEqual(status, 400)
+
+    def test_station_manager_rejects_remote_writes(self):
+        payload = json.dumps({"integrations": []}).encode()
+        with patch.object(server.Handler, "is_local_app_request", return_value=False):
+            status, _ = self.request(payload, path="api/station-settings")
+        self.assertEqual(status, 403)
+        self.assertFalse(self.station_settings_path.exists())
+
+    def test_station_profile_deletion_is_blocked_while_a_station_uses_it(self):
+        profile = {"provider": "weather-underground", "id": "PWS account", "apiKey": "weather-company-key-1234"}
+        status, _ = self.request(json.dumps(profile).encode(), path="api/station-credentials")
+        self.assertEqual(status, 200)
+        station = {"id": "pws", "name": "PWS", "provider": "weather-underground", "connection": "cloud-api", "stationId": "KDC123", "credentialsId": "PWS account", "locationId": "home"}
+        status, _ = self.request(json.dumps({"integrations": [station]}).encode(), path="api/station-settings")
+        self.assertEqual(status, 200)
+        status, data = self.request(path="api/station-credentials/weather-underground/PWS%20account", method="DELETE")
+        self.assertEqual(status, 409)
+        self.assertIn("Remove or reassign", data["error"])
+        status, _ = self.request(json.dumps({"integrations": []}).encode(), path="api/station-settings")
+        self.assertEqual(status, 200)
+        status, data = self.request(path="api/station-credentials/weather-underground/PWS%20account", method="DELETE")
+        self.assertEqual(status, 200)
+        self.assertEqual(data["profiles"], [])
+
+    def test_local_station_status_matches_freshness_of_received_sample(self):
+        server._station_config = {"receiver": {}, "integrations": [{"id": "local", "name": "Local station",
+                                "locationId": "home", "provider": "ambient-weather", "connection": "local-upload",
+                                "staleAfterSeconds": 600}]}
+        server._station_observations["local"] = {"observedAt": 100, "receivedAt": 100}
+        fresh = {"available": True, "fresh": True, "ageSeconds": 5, "observation": {"tempf": 70}}
+        with patch.object(server, "station_freshness", return_value=fresh):
+            payload = server.station_status_payload()
+        self.assertEqual(payload["integrations"][0]["status"], "Receiving local uploads")
+        stale = {"available": True, "fresh": False, "ageSeconds": 700, "observation": {"tempf": 70}}
+        with patch.object(server, "station_freshness", return_value=stale):
+            payload = server.station_status_payload()
+        self.assertEqual(payload["integrations"][0]["status"], "Last local reading is stale")
 
     def test_device_file_overrides_config_defaults(self):
         self.config_path.write_text(json.dumps({"startup": {"autoStart": True, "kiosk": False}}), encoding="utf-8")

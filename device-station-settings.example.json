@@ -1,0 +1,24 @@
+{
+  "integrations": [
+    {
+      "id": "backyard-ambient",
+      "name": "Backyard station",
+      "provider": "ambient-weather",
+      "connection": "cloud-api",
+      "deviceId": "00:11:22:33:44:55",
+      "credentialsId": "home-account",
+      "locationId": "home",
+      "staleAfterSeconds": 600
+    },
+    {
+      "id": "office-pws",
+      "name": "Office PWS",
+      "provider": "weather-underground",
+      "connection": "cloud-api",
+      "stationId": "KDCWASHINGTON123",
+      "credentialsId": "weather-company-account",
+      "locationId": "office",
+      "staleAfterSeconds": 600
+    }
+  ]
+}

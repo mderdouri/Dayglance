@@ -20,6 +20,8 @@ let preferences = {...DEFAULT_PREFERENCES};
 let stationIntegrations = [];
 let stationSamples = {};
 let stationReceiverStatus = 'disabled';
+let stationProfiles = [];
+let stationEditingId = null;
 let deviceSettings = {autoStart:false,kiosk:true,autostartInstalled:false,startupSupported:false};
 let configuredLocations = [];
 let locations = [];
@@ -38,6 +40,7 @@ let countdownTimer;
 let detailScrollTimer;
 const detailPointers=new Set();
 let refreshTimer;
+let stationRefreshTimer;
 let touchStart = null;
 let lastResumeRefresh = 0;
 
@@ -170,11 +173,12 @@ async function initialize(){
   let config=FALLBACK_CONFIG;
   try{const response=await fetch(CONFIG_URL,{cache:'no-store'});if(response.ok){const candidate=await response.json();if(candidate&&Object.hasOwn(candidate,'defaultLocation'))config=candidate}}catch{}
   stationIntegrations=Array.isArray(config.stationIntegrations)?config.stationIntegrations.filter(source=>source&&source.enabled===true&&((source.provider==='ambient-weather'&&['local-upload','cloud-api'].includes(source.connection))||(source.provider==='weather-underground'&&source.connection==='cloud-api'))&&typeof source.id==='string'):[];
+  try{const response=await fetch('./api/station-settings',{cache:'no-store'});if(response.ok){const data=await response.json();if(Array.isArray(data.integrations))stationIntegrations=data.integrations;stationProfiles=Array.isArray(data.profiles)?data.profiles:[]}}catch{}
   const configPreferences=config.preferences&&typeof config.preferences==='object'&&!Array.isArray(config.preferences)?Object.fromEntries(Object.entries(config.preferences).filter(([key])=>Object.hasOwn(DEFAULT_PREFERENCES,key))):{};
   configuredLocations=[normalizeConfigLocation(config.defaultLocation,0),...(config.locations||[]).map((area,index)=>normalizeConfigLocation(area,index+1))].filter(Boolean);
   const stored=readSaved(),signature=configSignature(config);
   const storedAssociations=stored.stationAssociations&&typeof stored.stationAssociations==='object'&&!Array.isArray(stored.stationAssociations)?stored.stationAssociations:{};
-  const stationAssociations=Object.fromEntries(stationIntegrations.map(source=>[source.id,Object.hasOwn(storedAssociations,source.id)?storedAssociations[source.id]:(typeof source.locationId==='string'?source.locationId:'')]));
+  const stationAssociations=Object.fromEntries(stationIntegrations.map(source=>[source.id,source.managed?(typeof source.locationId==='string'?source.locationId:''):Object.hasOwn(storedAssociations,source.id)?storedAssociations[source.id]:(typeof source.locationId==='string'?source.locationId:'')]));
   saved={defaultLocation:stored.defaultLocation||null,userLocations:Array.isArray(stored.userLocations)?stored.userLocations:[],hiddenLocationIds:Array.isArray(stored.hiddenLocationIds)?stored.hiddenLocationIds:[],overrides:stored.overrides&&typeof stored.overrides==='object'?stored.overrides:{},forecasts:stored.forecasts&&typeof stored.forecasts==='object'?stored.forecasts:{},histories:stored.histories&&typeof stored.histories==='object'?stored.histories:{},resolved:stored.resolved&&typeof stored.resolved==='object'?stored.resolved:{},preferences:stored.preferences&&typeof stored.preferences==='object'?stored.preferences:{},stationAssociations,configSignature:signature};
   preferences={...DEFAULT_PREFERENCES,...configPreferences,...saved.preferences};
   delete preferences.scrollbarSize;
@@ -196,7 +200,7 @@ async function initialize(){
   }
   save();rebuildLocations();currentIndex=0;showingAddPage=false;
   applyPreferences();await loadDeviceSettings();scheduleRefresh();
-  if(stationIntegrations.length){await refreshStationData();setInterval(refreshStationData,30000)}
+  if(stationIntegrations.length)await refreshStationData();updateStationRefreshTimer()
   if(!locations.length){setStatus('Choose your location');openEditor('initial');return}
   dashboard.hidden=false;setup.hidden=true;addPage.hidden=true;
   const cached=saved.forecasts[locations[0].id],cachedData=forecastInCurrentUnits(cached);
@@ -295,6 +299,10 @@ async function refreshStationData(){
     stationReceiverStatus='unreachable';
     if(currentForecast&&locations[currentIndex])render(currentForecast,locations[currentIndex]);
   }
+}
+function updateStationRefreshTimer(){
+  if(stationIntegrations.length){if(!stationRefreshTimer)stationRefreshTimer=setInterval(refreshStationData,30000)}
+  else if(stationRefreshTimer){clearInterval(stationRefreshTimer);stationRefreshTimer=null}
 }
 function render(data,location){
   const current=data.current,daily=data.daily,hourly=data.hourly;
@@ -591,6 +599,7 @@ function renderSettings(){
 }
 function renderStationSettings(){
   const holder=$('#station-integrations-list');if(!holder)return;holder.replaceChildren();
+  renderStationProfiles();renderStationFormOptions();
   if(!stationIntegrations.length){const empty=document.createElement('p');empty.className='settings-help station-empty';empty.textContent='No station sources are configured yet.';holder.append(empty);return}
   for(const source of stationIntegrations){
     const row=document.createElement('div');row.className='station-integration-row';
@@ -607,14 +616,40 @@ function renderStationSettings(){
     const assigned=saved.stationAssociations[source.id]||'';
     for(const location of locations){
       const option=document.createElement('option');option.value=location.id;option.textContent=`${location.name}${location.id===locations[0]?.id?' · default':''}`;
-      const usedByOther=stationIntegrations.some(other=>other.id!==source.id&&saved.stationAssociations[other.id]===location.id);
+      const usedByOther=stationIntegrations.some(other=>other.id!==source.id&&(other.managed?other.locationId:saved.stationAssociations[other.id])===location.id);
       option.disabled=usedByOther;select.append(option);
     }
     select.value=locations.some(location=>location.id===assigned)?assigned:'';
-    select.addEventListener('change',()=>{saved.stationAssociations[source.id]=select.value;save();renderStationSettings();if(currentForecast&&locations[currentIndex])render(currentForecast,locations[currentIndex]);$('#settings-status').textContent='Station association saved on this device.'});
-    row.append(label,select);holder.append(row);
+    select.addEventListener('change',()=>{if(source.managed){source.locationId=select.value||null;saveManagedStations()}else{saved.stationAssociations[source.id]=select.value;save();renderStationSettings();if(currentForecast&&locations[currentIndex])render(currentForecast,locations[currentIndex]);$('#settings-status').textContent='Station association saved in this browser.'}});
+    const controls=document.createElement('div');controls.className='station-row-controls';controls.append(select);
+    if(source.managed){const edit=document.createElement('button');edit.type='button';edit.className='small-action';edit.textContent='Edit';edit.addEventListener('click',()=>editManagedStation(source));const remove=document.createElement('button');remove.type='button';remove.className='small-action remove-location';remove.textContent='Remove';remove.addEventListener('click',()=>removeManagedStation(source.id));controls.append(edit,remove)}else{const configLabel=document.createElement('small');configLabel.className='station-config-label';configLabel.textContent='From config.json';controls.append(configLabel)}
+    row.append(label,controls);holder.append(row);
   }
 }
+function renderStationProfiles(){
+  const holder=$('#station-profiles-list');if(!holder)return;holder.replaceChildren();
+  if(!stationProfiles.length){const empty=document.createElement('p');empty.className='settings-help station-empty';empty.textContent='No provider key profiles saved on this device.';holder.append(empty)}
+  for(const profile of stationProfiles){const row=document.createElement('div');row.className='station-profile-row';const label=document.createElement('strong');label.textContent=`${profile.id} · ${profile.provider==='ambient-weather'?'Ambient Weather':'Weather Underground'}`;const status=document.createElement('small');status.textContent=profile.configured?'Keys saved on this Pi':'Incomplete profile';const actions=document.createElement('div');actions.className='station-profile-actions';const replace=document.createElement('button');replace.type='button';replace.className='small-action';replace.textContent='Replace keys';replace.addEventListener('click',()=>{const form=$('#station-profile-form');$('#station-profile-provider').value=profile.provider;$('#station-profile-id').value=profile.id;$('#station-profile-api-key').value='';$('#station-profile-app-key').value='';updateStationProfileFields();$('#station-profile-api-key').focus();form.scrollIntoView({behavior:'smooth',block:'center'})});const remove=document.createElement('button');remove.type='button';remove.className='small-action remove-location';remove.textContent='Remove';remove.addEventListener('click',()=>removeStationProfile(profile));actions.append(replace,remove);row.append(label,status,actions);holder.append(row)}
+}
+function updateStationProfileFields(){const ambient=$('#station-profile-provider').value==='ambient-weather',field=$('#station-app-key-field');field.hidden=!ambient;$('#station-profile-app-key').required=ambient;renderStationFormOptionsProfilesOnly()}
+function renderStationFormOptions(){
+  const provider=$('#station-source-provider'),profileSelect=$('#station-source-profile'),citySelect=$('#station-source-city');if(!provider||!profileSelect||!citySelect)return;
+  const profiles=stationProfiles.filter(item=>item.provider===provider.value);profileSelect.replaceChildren();const emptyProfile=document.createElement('option');emptyProfile.value='';emptyProfile.textContent=profiles.length?'Choose a key profile':'Add a key profile above first';profileSelect.append(emptyProfile);for(const profile of profiles){const option=document.createElement('option');option.value=profile.id;option.textContent=`${profile.id}${profile.configured?'':' · missing key'}`;profileSelect.append(option)}
+  const prior=citySelect.value, editing=stationEditingId;citySelect.replaceChildren();const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Choose a city';citySelect.append(placeholder);for(const location of locations){const used=stationIntegrations.some(item=>item.id!==editing&&(item.managed?item.locationId:saved.stationAssociations[item.id])===location.id);const option=document.createElement('option');option.value=location.id;option.textContent=`${location.name}${location.id===locations[0]?.id?' · default':''}`;option.disabled=used;citySelect.append(option)}if([...citySelect.options].some(item=>item.value===prior&&!item.disabled))citySelect.value=prior;
+  updateStationSourceFields();
+}
+function updateStationSourceFields(){const ambient=$('#station-source-provider').value==='ambient-weather';$('#station-device-id-field').hidden=!ambient;$('#station-pws-id-field').hidden=ambient;$('#station-device-id').required=ambient;$('#station-pws-id').required=!ambient;renderStationFormOptionsProfilesOnly()}
+function renderStationFormOptionsProfilesOnly(){const select=$('#station-source-profile');if(!select)return;const prior=select.value,items=stationProfiles.filter(item=>item.provider===$('#station-source-provider').value);select.replaceChildren();const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent=items.length?'Choose a key profile':'Add a key profile above first';select.append(placeholder);for(const profile of items){const option=document.createElement('option');option.value=profile.id;option.textContent=`${profile.id}${profile.configured?'':' · missing key'}`;select.append(option)}if(items.some(item=>item.id===prior))select.value=prior}
+function clearStationSourceForm(){stationEditingId=null;$('#station-source-form').reset();$('#station-source-cancel').hidden=true;$('#station-source-form button[type="submit"]').textContent='Save station';renderStationFormOptions()}
+function editManagedStation(source){stationEditingId=source.id;$('#station-source-provider').value=source.provider;renderStationFormOptions();$('#station-source-name').value=source.name||'';updateStationSourceFields();$('#station-device-id').value=source.deviceId||'';$('#station-pws-id').value=source.stationId||'';$('#station-source-profile').value=source.credentialsId||'';$('#station-source-city').value=source.locationId||'';$('#station-source-cancel').hidden=false;$('#station-source-form button[type="submit"]').textContent='Save changes';$('#station-source-form').scrollIntoView({behavior:'smooth',block:'center'})}
+async function saveManagedStations(){
+  const integrations=stationIntegrations.filter(item=>item.managed).map(item=>({id:item.id,name:item.name,provider:item.provider,connection:'cloud-api',credentialsId:item.credentialsId,deviceId:item.deviceId,stationId:item.stationId,locationId:item.locationId,staleAfterSeconds:item.staleAfterSeconds||600}));
+  const status=$('#settings-status');try{const response=await fetch('./api/station-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({integrations})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Could not save station settings.');stationIntegrations=data.integrations;stationProfiles=data.profiles;saved.stationAssociations=Object.fromEntries(stationIntegrations.map(item=>[item.id,item.managed?(item.locationId||''):(saved.stationAssociations[item.id]||item.locationId||'')]));save();renderStationSettings();updateStationRefreshTimer();await refreshStationData();if(currentForecast&&locations[currentIndex])render(currentForecast,locations[currentIndex]);status.textContent='Station changes saved on this Pi. Cloud polling updates within one minute.'}catch(error){status.textContent=error.message;try{const response=await fetch('./api/station-settings',{cache:'no-store'});if(response.ok){const data=await response.json();stationIntegrations=data.integrations;stationProfiles=data.profiles;updateStationRefreshTimer()}}catch{}renderStationSettings()}
+}
+function removeManagedStation(id){const source=stationIntegrations.find(item=>item.id===id);if(!source||!window.confirm(`Remove “${source.name}” from this Pi?`))return;stationIntegrations=stationIntegrations.filter(item=>item.id!==id);saveManagedStations()}
+async function saveStationProfile(event){event.preventDefault();const provider=$('#station-profile-provider').value,data={provider,id:$('#station-profile-id').value.trim(),apiKey:$('#station-profile-api-key').value.trim()};if(provider==='ambient-weather')data.applicationKey=$('#station-profile-app-key').value.trim();const button=$('#station-profile-form button[type="submit"]');button.disabled=true;try{const response=await fetch('./api/station-credentials',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const result=await response.json();if(!response.ok)throw new Error(result.error||'Could not save provider keys.');stationProfiles=result.profiles;$('#station-profile-api-key').value='';$('#station-profile-app-key').value='';$('#settings-status').textContent='Provider keys saved privately on this Pi. They are not displayed or sent to the browser again.';renderStationSettings()}catch(error){$('#settings-status').textContent=error.message}finally{button.disabled=false}}
+async function removeStationProfile(profile){if(stationIntegrations.some(item=>item.provider===profile.provider&&item.credentialsId===profile.id)){text('settings-status','Remove or reassign stations that use this profile first.');return}if(!window.confirm(`Remove the saved ${profile.provider==='ambient-weather'?'Ambient Weather':'Weather Underground'} keys for “${profile.id}”?`))return;try{const response=await fetch(`./api/station-credentials/${encodeURIComponent(profile.provider)}/${encodeURIComponent(profile.id)}`,{method:'DELETE'});const data=await response.json();if(!response.ok)throw new Error(data.error||'Could not remove profile.');stationProfiles=data.profiles;renderStationSettings();text('settings-status','Provider key profile removed from this Pi.')}catch(error){text('settings-status',error.message)}}
+async function submitManagedStation(event){event.preventDefault();const provider=$('#station-source-provider').value,id=stationEditingId||`cloud-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`,source={id,name:$('#station-source-name').value.trim(),provider,connection:'cloud-api',credentialsId:$('#station-source-profile').value,locationId:$('#station-source-city').value,staleAfterSeconds:600};if(provider==='ambient-weather')source.deviceId=$('#station-device-id').value.trim();else source.stationId=$('#station-pws-id').value.trim();const current=stationIntegrations.filter(item=>item.managed&&item.id!==stationEditingId).map(item=>({id:item.id,name:item.name,provider:item.provider,connection:'cloud-api',credentialsId:item.credentialsId,deviceId:item.deviceId,stationId:item.stationId,locationId:item.locationId,staleAfterSeconds:item.staleAfterSeconds||600}));current.push(source);const status=$('#settings-status');try{const response=await fetch('./api/station-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({integrations:current})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Could not save station.');stationIntegrations=data.integrations;stationProfiles=data.profiles;saved.stationAssociations=Object.fromEntries(stationIntegrations.map(item=>[item.id,item.managed?(item.locationId||''):(saved.stationAssociations[item.id]||item.locationId||'')]));save();clearStationSourceForm();renderStationSettings();updateStationRefreshTimer();await refreshStationData();status.textContent='Station saved. Cloud polling updates within one minute.'}catch(error){status.textContent=error.message}}
 function openSettings(){
   if(!setup.hidden)return;
   if(!radarScreen.hidden)window.DayglanceRadar.close();
@@ -624,12 +659,15 @@ function closeSettings(){settingsScreen.hidden=true;if(locations.length){dashboa
 function removeLocation(id){
   const area=locations.find(item=>item.id===id);if(!area||locations[0]?.id===id)return;
   const currentId=locations[currentIndex]?.id;
+  let stationChanged=false;
   if(configuredLocations.some(item=>item.id===id))saved.hiddenLocationIds=[...new Set([...saved.hiddenLocationIds,id])];
   if(saved.defaultLocation?.id===id)saved.defaultLocation=null;
   for(const [stationId,locationId] of Object.entries(saved.stationAssociations))if(locationId===id)saved.stationAssociations[stationId]='';
+  for(const source of stationIntegrations)if(source.managed&&source.locationId===id){source.locationId=null;stationChanged=true}
   saved.userLocations=saved.userLocations.filter(item=>item.id!==id);
   delete saved.overrides[id];delete saved.resolved[id];delete saved.forecasts[id];delete saved.histories[id];save();rebuildLocations();
   const newIndex=locations.findIndex(item=>item.id===currentId);currentIndex=newIndex>=0?newIndex:0;updateAreaPosition();renderSettings();
+  if(stationChanged)saveManagedStations();
   if(locations[currentIndex]){const cached=saved.forecasts[locations[currentIndex].id],cachedData=forecastInCurrentUnits(cached);if(cachedData){currentForecast=cachedData;render(cachedData,locations[currentIndex])}else loadForecast({showSpinner:false})}
 }
 function changePreference(key,value,refreshForecast=false){
@@ -712,6 +750,11 @@ window.addEventListener('pointerup',finishSettingsPan,{passive:true});
 window.addEventListener('pointercancel',finishSettingsPan,{passive:true});
 $('#settings-edit-default').addEventListener('click',editDefaultLocation);
 $('#settings-add-location').addEventListener('click',()=>openEditor('add',{returnToSettings:true}));
+$('#station-profile-form').addEventListener('submit',saveStationProfile);
+$('#station-source-form').addEventListener('submit',submitManagedStation);
+$('#station-source-provider').addEventListener('change',updateStationSourceFields);
+$('#station-profile-provider').addEventListener('change',updateStationProfileFields);
+$('#station-source-cancel').addEventListener('click',clearStationSourceForm);
 $('#setting-return-time').addEventListener('change',event=>changePreference('returnAfterSeconds',Number(event.target.value)));
 $('#setting-radar-timeout').addEventListener('change',event=>changePreference('radarIdleTimeoutSeconds',Number(event.target.value)));
 $('#setting-temperature').addEventListener('change',event=>changePreference('temperatureUnit',event.target.value,true));

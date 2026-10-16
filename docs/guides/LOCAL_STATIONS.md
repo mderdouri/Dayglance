@@ -1,6 +1,6 @@
 # Local weather stations
 
-Dayglance can display live observations from one local weather station on a saved city. The station is linked to a city rather than shown as another location. Dayglance keeps the selected forecast provider for sunrise, hourly forecasts, daily outlooks, and the temperature graph. Station-backed current measurements are identified as observations and replace forecast values only while the station sample is fresh.
+Dayglance can display live observations from one local weather station on a saved city. The station is linked to a city rather than shown as another location. Dayglance keeps the selected forecast provider for sunrise, hourly forecasts, daily outlooks, and the temperature graph. Station-backed current measurements are identified as observations and replace forecast values only while the station sample is fresh. Cloud station accounts and devices can be managed in **Settings → Local Weather Stations** or copied in through the documented device-local JSON files.
 
 ## Supported connection
 
@@ -40,7 +40,7 @@ The addresses are examples, not a recommended range. The Pi address must be assi
 
 The listener refuses `0.0.0.0`, loopback, and public bind addresses. It accepts requests only on the configured path from configured station IPs. Keep the port limited to your trusted LAN with your router/firewall. Do not place station passwords, API keys, or other credentials in `config.json`; this config is served to the browser. The upload protocol may include an ID and password field; Dayglance ignores these values and never logs upload query strings.
 
-Restart the Dayglance service after changing `stationReceiver` or adding/enabling a station. It starts no listener when `stationIntegrations` is empty or all sources are disabled. A bad station config is logged while the weather dashboard continues to start without the receiver.
+Restart the Dayglance service after changing `stationReceiver` or adding/enabling a local-upload station in `config.json`. Cloud API stations added in Settings or `device-station-settings.json` are applied live; the always-running cloud poller checks them on its next one-minute cycle. A bad station config is logged while the weather dashboard continues to start without the receiver.
 
 ## Configure the station upload
 
@@ -76,20 +76,23 @@ See [Configuration](CONFIGURATION.md) for the supported JSON configuration path 
 Use this option when the station already reports to AmbientWeather.net and its firmware does not offer a usable custom upload. It requires an Ambient Weather user API key and application key. Check current account access and terms with Ambient Weather. Their API reference publishes a limit of 1 request/second per user key and 3 requests/second per application key. Dayglance polls each credential pair once per minute and reuses that result for its configured devices.
 
 1. Obtain both keys from AmbientWeather.net account settings. Find the station MAC address in the Ambient device list.
-2. Add a source to `stationIntegrations` in `config.json` with `provider: "ambient-weather"`, `connection: "cloud-api"`, `deviceId` set to the station MAC, and `credentialsId` set to a short account label. Example:
+2. In Settings, open **Local Weather Stations → Provider key profiles**, choose Ambient Weather, enter an account label, the user API key, and application key, then save. Keys are written to the ignored, private `device-station-credentials.json` file and never returned to the browser. To update a key, choose **Replace keys** and enter the replacement values; the existing secret is never revealed. A key profile can be reused for multiple station devices.
+3. Under **Add or edit a cloud station**, enter a friendly name, choose Ambient Weather, enter the station MAC, select the key profile, and assign a saved city. Saving applies the definition immediately; the first reading should appear by the next poll (within 60 seconds). The source is stored in the ignored, private `device-station-settings.json` file. A sample config-file entry is:
 
    ```json
    {"id":"cloud-backyard","name":"Backyard cloud station","provider":"ambient-weather","connection":"cloud-api","enabled":true,"deviceId":"00:11:22:33:44:55","credentialsId":"home-account","locationId":null,"staleAfterSeconds":600}
    ```
 
-3. Create `device-station-credentials.json` in the Dayglance project directory with the keys under the same account label:
+For keyboard-free provisioning, cloud stations may instead be preloaded in `config.json` and keys copied to `device-station-credentials.json` as shown below. Entries from `config.json` are labeled in Settings and are not editable there; city association remains editable. A source defined both in config and in the device-local file must have a unique ID and cannot claim the same city as another source.
+
+4. Create `device-station-credentials.json` in the Dayglance project directory with the keys under the same account label:
 
    ```json
    {"ambientWeatherAccounts":{"home-account":{"apiKey":"PASTE_USER_API_KEY_HERE","applicationKey":"PASTE_APPLICATION_KEY_HERE"}}}
    ```
 
-4. Restrict the file to the service account (`chmod 600 device-station-credentials.json` on Linux), then restart the Dayglance service. Assign the station to its city under **Settings → Local Weather Stations**.
-5. Check the source status in Settings. The first reading may take up to one polling interval (60 seconds). Cloud data ages out using `staleAfterSeconds` if updates stop.
+5. Restrict the file to the service account (`chmod 600 device-station-credentials.json` on Linux). For a source in `config.json`, restart Dayglance and assign the station to its city under **Settings → Local Weather Stations**.
+6. Check the source status in Settings. The first reading may take up to one polling interval (60 seconds). Cloud data ages out using `staleAfterSeconds` if updates stop.
 
 Do not commit the credentials file, include it in public screenshots/logs, or back it up without encryption. A blank example is available at [`device-station-credentials.example.json`](../../device-station-credentials.example.json). API keys are sent to Ambient over HTTPS and are never returned by Dayglance's status endpoint.
 
@@ -98,4 +101,4 @@ Do not commit the credentials file, include it in public screenshots/logs, or ba
 - [Weathercloud's official FAQ](https://weathercloud.net/en/faq) says it does not currently provide an API for retrieving device data. Dayglance does not scrape its website. Use direct local uploads if the station or an intermediary can send the supported Ambient or Weather Underground-compatible upload format to the Pi.
 - Weather Underground's PWS cloud API is supported separately from the local Weather Underground-compatible upload protocol. It requires an authorized Weather Company API key and station ID; current trial quota is 50,000 requests/day, while paid access limits and charges depend on the account agreement. Confirm the key's PWS access and current terms before enabling it. See the API key, quota, and pricing links in [Configuration](CONFIGURATION.md).
 
-For Weather Underground cloud setup, add an entry with `provider: "weather-underground"`, `connection: "cloud-api"`, a PWS `stationId`, and a `credentialsId` as shown in [Configuration](CONFIGURATION.md). Add a matching API key under `weatherUndergroundAccounts` in `device-station-credentials.json`, then restart Dayglance. Status appears under **Settings → Local Weather Stations**. Dayglance requests one current PWS observation per configured station each minute. A trial key's documented quota is 50,000 requests per day; paid request caps and overage terms vary by account, so verify current provider access and terms before enabling polling.
+For Weather Underground cloud setup, save a Weather Underground profile under **Provider key profiles**, then add a station under **Add or edit a cloud station** with its PWS station ID, profile, and city. For config-file provisioning, use `provider: "weather-underground"`, `connection: "cloud-api"`, a PWS `stationId`, and a `credentialsId` as shown in [Configuration](CONFIGURATION.md). Dayglance requests one current PWS observation per configured station each minute. A trial key's documented quota is 50,000 requests per day; paid request caps and overage terms vary by account, so verify current provider access and terms before enabling polling.
