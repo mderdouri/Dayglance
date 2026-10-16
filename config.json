@@ -9,7 +9,8 @@
         "query": "San Francisco",
         "countryCode": "US"
       },
-      "validInputs": "For a searched location, provide query as a city, region, or postal code; countryCode is an optional ISO country code such as US. For a fixed location, provide numeric latitude and longitude instead. Each id must be unique."
+      "validInputs": "For a searched location, provide query as a city, region, or postal code; countryCode is an optional ISO country code such as US. For a fixed location, provide numeric latitude and longitude instead. Each id must be unique.",
+      "order": "defaultLocation is shown first. Entries in the locations array are shown afterward in array order on a fresh browser profile. In Settings, the selected default and custom order are saved per browser and override this file for that profile."
     },
     "preferences": {
       "returnAfterSeconds": {"meaning": "Idle time before the hourly view closes; defaults to 60 seconds and 0 keeps it open.", "validValues": [0, 15, 30, 60, 90, 120, 300], "examples": {"15": "15 seconds", "30": "30 seconds", "60": "1 minute (default)", "90": "1 minute 30 seconds", "120": "2 minutes", "300": "5 minutes", "0": "Stay open until closed"}},

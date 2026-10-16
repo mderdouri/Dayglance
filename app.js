@@ -5,6 +5,7 @@ const GEOCODE_API = 'https://geocoding-api.open-meteo.com/v1/search';
 const AIR_QUALITY_API = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 const FALLBACK_CONFIG = {defaultLocation:null,locations:[]};
 const hourlyWindow = window.DayglanceHourlyWindow;
+const locationOrder = window.DayglanceLocationOrder;
 const DEFAULT_PREFERENCES = {returnAfterSeconds:60,radarIdleTimeoutSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,showBumpers:true,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30};
 const $ = selector => document.querySelector(selector);
 const setup = $('#setup');
@@ -15,7 +16,7 @@ const settingsScreen = $('#settings-screen');
 const radarScreen = $('#radar-screen');
 const loading = $('#loading');
 const setupError = $('#setup-error');
-let saved = {userLocations:[],overrides:{},forecasts:{},histories:{},resolved:{},preferences:{}};
+let saved = {userLocations:[],overrides:{},forecasts:{},histories:{},resolved:{},preferences:{},locationOrder:[],defaultLocationId:null};
 let preferences = {...DEFAULT_PREFERENCES};
 let deviceSettings = {autoStart:false,kiosk:true,autostartInstalled:false,startupSupported:false};
 let configuredLocations = [];
@@ -169,7 +170,7 @@ async function initialize(){
   const configPreferences=config.preferences&&typeof config.preferences==='object'&&!Array.isArray(config.preferences)?Object.fromEntries(Object.entries(config.preferences).filter(([key])=>Object.hasOwn(DEFAULT_PREFERENCES,key))):{};
   configuredLocations=[normalizeConfigLocation(config.defaultLocation,0),...(config.locations||[]).map((area,index)=>normalizeConfigLocation(area,index+1))].filter(Boolean);
   const stored=readSaved(),signature=configSignature(config);
-  saved={defaultLocation:stored.defaultLocation||null,userLocations:Array.isArray(stored.userLocations)?stored.userLocations:[],hiddenLocationIds:Array.isArray(stored.hiddenLocationIds)?stored.hiddenLocationIds:[],overrides:stored.overrides&&typeof stored.overrides==='object'?stored.overrides:{},forecasts:stored.forecasts&&typeof stored.forecasts==='object'?stored.forecasts:{},histories:stored.histories&&typeof stored.histories==='object'?stored.histories:{},resolved:stored.resolved&&typeof stored.resolved==='object'?stored.resolved:{},preferences:stored.preferences&&typeof stored.preferences==='object'?stored.preferences:{},configSignature:signature};
+  saved={defaultLocation:stored.defaultLocation||null,userLocations:Array.isArray(stored.userLocations)?stored.userLocations:[],hiddenLocationIds:Array.isArray(stored.hiddenLocationIds)?stored.hiddenLocationIds:[],overrides:stored.overrides&&typeof stored.overrides==='object'?stored.overrides:{},forecasts:stored.forecasts&&typeof stored.forecasts==='object'?stored.forecasts:{},histories:stored.histories&&typeof stored.histories==='object'?stored.histories:{},resolved:stored.resolved&&typeof stored.resolved==='object'?stored.resolved:{},preferences:stored.preferences&&typeof stored.preferences==='object'?stored.preferences:{},locationOrder:Array.isArray(stored.locationOrder)?stored.locationOrder.filter(id=>typeof id==='string'):[],defaultLocationId:typeof stored.defaultLocationId==='string'?stored.defaultLocationId:null,configSignature:signature};
   preferences={...DEFAULT_PREFERENCES,...configPreferences,...saved.preferences};
   delete preferences.scrollbarSize;
   delete saved.preferences.scrollbarSize;
@@ -188,7 +189,7 @@ async function initialize(){
   if(stored.configSignature&&stored.configSignature!==signature){
     for(const area of configuredLocations){delete saved.overrides[area.id];delete saved.resolved[area.id];delete saved.forecasts[area.id];delete saved.histories[area.id]}
   }
-  save();rebuildLocations();currentIndex=0;showingAddPage=false;
+  rebuildLocations();save();currentIndex=0;showingAddPage=false;
   applyPreferences();await loadDeviceSettings();scheduleRefresh();
   if(!locations.length){setStatus('Choose your location');openEditor('initial');return}
   dashboard.hidden=false;setup.hidden=true;addPage.hidden=true;
@@ -199,7 +200,11 @@ async function initialize(){
 function rebuildLocations(){
   const hidden=new Set(saved.hiddenLocationIds||[]);
   const primary=configuredLocations.map(area=>saved.overrides[area.id]||area).filter(area=>!hidden.has(area.id));
-  locations=[...primary,...(saved.defaultLocation?[saved.defaultLocation]:[]),...saved.userLocations.filter(area=>!hidden.has(area.id))];
+  const available=[...primary,...(saved.defaultLocation?[saved.defaultLocation]:[]),...saved.userLocations.filter(area=>!hidden.has(area.id))];
+  const firstConfigured=configuredLocations.find(area=>!hidden.has(area.id));
+  const preferred=saved.defaultLocationId||firstConfigured?.id||saved.defaultLocation?.id||available[0]?.id;
+  locations=locationOrder.arrange(available,preferred,saved.locationOrder);
+  saved.defaultLocationId=locations[0]?.id||null;
   $('#refresh').hidden=locations.length===0;
   $('#radar-open').hidden=locations.length===0;
   currentIndex=Math.max(0,Math.min(currentIndex,locations.length-1));
@@ -461,7 +466,7 @@ function saveSelectedLocation(){
   else if(editorMode==='edit'&&configuredLocations.some(area=>area.id===editingId))saved.overrides[editingId]=selected;
   else if(editorMode==='edit')saved.userLocations=saved.userLocations.map(area=>area.id===editingId?selected:area);
   else saved.userLocations.push(selected);
-  save();rebuildLocations();
+  rebuildLocations();persistLocationOrder();
   settingsReturn=false;
   if(returnToSettings){setup.hidden=true;dashboard.hidden=true;addPage.hidden=true;settingsScreen.hidden=false;renderSettings();return}
   const nextIndex=locations.findIndex(area=>area.id===selected.id);
@@ -521,18 +526,23 @@ function submitSearch(event){event.preventDefault();if(selectedResult)saveSelect
 function renderSettings(){
   const primary=locations[0];text('settings-default-name',primary?.name||'Choose a default location');
   const holder=$('#settings-locations');holder.replaceChildren();
-  locations.slice(1).forEach(area=>{
+  locations.slice(1).forEach((area,offset)=>{
+    const index=offset+1;
     const row=document.createElement('div');row.className='settings-location-row';
     const label=document.createElement('div');label.className='settings-location-label';
     const name=document.createElement('strong');name.textContent=area.name;
     const source=document.createElement('small');source.textContent=area.source==='config'?'From config.json':'Saved on this device';
     label.append(name,source);
     const actions=document.createElement('div');actions.className='settings-location-actions';
+    const makeDefault=document.createElement('button');makeDefault.type='button';makeDefault.className='small-action';makeDefault.textContent='Make default';makeDefault.setAttribute('aria-label',`Make ${area.name} the default location`);makeDefault.addEventListener('click',()=>setDefaultLocation(area.id));
+    const earlier=document.createElement('button');earlier.type='button';earlier.className='small-action location-order-button';earlier.textContent='↑';earlier.setAttribute('aria-label',`Move ${area.name} earlier`);earlier.disabled=index===1;earlier.addEventListener('click',()=>moveSavedLocation(area.id,-1));
+    const later=document.createElement('button');later.type='button';later.className='small-action location-order-button';later.textContent='↓';later.setAttribute('aria-label',`Move ${area.name} later`);later.disabled=index===locations.length-1;later.addEventListener('click',()=>moveSavedLocation(area.id,1));
     const edit=document.createElement('button');edit.type='button';edit.className='small-action';edit.textContent='Edit';edit.setAttribute('aria-label',`Edit ${area.name}`);edit.addEventListener('click',()=>openEditor('edit',{locationId:area.id,returnToSettings:true}));
     const remove=document.createElement('button');remove.type='button';remove.className='small-action remove-location';remove.textContent='Remove';remove.setAttribute('aria-label',`Remove ${area.name}`);remove.addEventListener('click',()=>removeLocation(area.id));
-    actions.append(edit,remove);row.append(label,actions);holder.append(row);
+    actions.append(makeDefault,earlier,later,edit,remove);row.append(label,actions);holder.append(row);
   });
   if(locations.length<2){const empty=document.createElement('p');empty.className='settings-help';empty.textContent='No additional locations have been added.';holder.append(empty)}
+  else {const hint=document.createElement('p');hint.className='settings-help location-order-help';hint.textContent='The default appears first when Dayglance starts. Use the arrows to reorder other locations.';holder.append(hint)}
 }
 function openSettings(){
   if(!setup.hidden)return;
@@ -545,10 +555,31 @@ function removeLocation(id){
   const currentId=locations[currentIndex]?.id;
   if(configuredLocations.some(item=>item.id===id))saved.hiddenLocationIds=[...new Set([...saved.hiddenLocationIds,id])];
   if(saved.defaultLocation?.id===id)saved.defaultLocation=null;
+  if(saved.defaultLocationId===id)saved.defaultLocationId=null;
   saved.userLocations=saved.userLocations.filter(item=>item.id!==id);
-  delete saved.overrides[id];delete saved.resolved[id];delete saved.forecasts[id];delete saved.histories[id];save();rebuildLocations();
+  saved.locationOrder=saved.locationOrder.filter(item=>item!==id);
+  delete saved.overrides[id];delete saved.resolved[id];delete saved.forecasts[id];delete saved.histories[id];rebuildLocations();persistLocationOrder();
   const newIndex=locations.findIndex(item=>item.id===currentId);currentIndex=newIndex>=0?newIndex:0;updateAreaPosition();renderSettings();
   if(locations[currentIndex]){const cached=saved.forecasts[locations[currentIndex].id],cachedData=forecastInCurrentUnits(cached);if(cachedData){currentForecast=cachedData;render(cachedData,locations[currentIndex])}else loadForecast({showSpinner:false})}
+}
+function persistLocationOrder(){saved.locationOrder=locations.map(area=>area.id);save()}
+function setDefaultLocation(id){
+  if(!locations.some(area=>area.id===id))return;
+  const currentId=locations[currentIndex]?.id;
+  saved.defaultLocationId=id;
+  rebuildLocations();persistLocationOrder();
+  currentIndex=Math.max(0,locations.findIndex(area=>area.id===currentId));
+  updateAreaPosition();renderSettings();
+  const active=locations[currentIndex],cachedData=forecastInCurrentUnits(saved.forecasts[active?.id]);
+  if(cachedData){currentForecast=cachedData;render(cachedData,active)}else if(active)loadForecast({showSpinner:false});
+  $('#settings-status').textContent='Default location saved on this device.';
+}
+function moveSavedLocation(id,direction){
+  const currentId=locations[currentIndex]?.id;
+  locations=locationOrder.move(locations,id,direction);persistLocationOrder();rebuildLocations();
+  currentIndex=Math.max(0,locations.findIndex(area=>area.id===currentId));
+  updateAreaPosition();renderSettings();
+  $('#settings-status').textContent='Location order saved on this device.';
 }
 function changePreference(key,value,refreshForecast=false){
   preferences[key]=value;savePreferences();
@@ -603,6 +634,18 @@ settingsScreen.addEventListener('pointerdown',event=>{
   settingsPan={pointerId:event.pointerId,startY:event.clientY,startTop:settingsScreen.scrollTop,moved:false};
   settingsScreen.classList.add('settings-dragging');
 });
+settingsScreen.addEventListener('keydown',event=>{
+  if(event.target!==settingsScreen)return;
+  const page=Math.max(48,Math.floor(settingsScreen.clientHeight*.8));
+  let top=null;
+  if(event.key==='PageDown')top=settingsScreen.scrollTop+page;
+  else if(event.key==='PageUp')top=settingsScreen.scrollTop-page;
+  else if(event.key==='ArrowDown')top=settingsScreen.scrollTop+48;
+  else if(event.key==='ArrowUp')top=settingsScreen.scrollTop-48;
+  else if(event.key==='Home')top=0;
+  else if(event.key==='End')top=settingsScreen.scrollHeight;
+  if(top!==null){event.preventDefault();settingsScreen.scrollTo({top,behavior:'instant'})}
+});
 window.addEventListener('pointermove',event=>{
   if(!settingsPan||event.pointerId!==settingsPan.pointerId)return;
   const delta=settingsPan.startY-event.clientY;
@@ -620,6 +663,54 @@ function finishSettingsPan(event){
 }
 window.addEventListener('pointerup',finishSettingsPan,{passive:true});
 window.addEventListener('pointercancel',finishSettingsPan,{passive:true});
+function installVerticalDragScroll(surface,{ignoreResults=false,excludeControls=false}={}){
+  let pan=null,suppressClick=false;
+  surface.addEventListener('click',event=>{
+    if(!suppressClick)return;
+    suppressClick=false;event.preventDefault();event.stopImmediatePropagation();
+  },true);
+  surface.addEventListener('pointerdown',event=>{
+    if(event.pointerType!=='mouse'||event.button!==0)return;
+    if(ignoreResults&&event.target.closest('#search-results'))return;
+    if(excludeControls&&event.target.closest('button,input,select,textarea,a,[role="button"]'))return;
+    pan={pointerId:event.pointerId,startY:event.clientY,startTop:surface.scrollTop,moved:false};
+    surface.classList.add('content-dragging');
+  });
+  window.addEventListener('pointermove',event=>{
+    if(!pan||event.pointerId!==pan.pointerId)return;
+    const delta=pan.startY-event.clientY;
+    if(!pan.moved&&Math.abs(delta)<5)return;
+    pan.moved=true;surface.scrollTop=pan.startTop+delta;event.preventDefault();
+  },{passive:false});
+  function finish(event){
+    if(!pan||event.pointerId!==pan.pointerId)return;
+    const dragged=pan.moved;pan=null;surface.classList.remove('content-dragging');
+    if(dragged){suppressClick=true;window.setTimeout(()=>{suppressClick=false},0)}
+  }
+  window.addEventListener('pointerup',finish,{passive:true});
+  window.addEventListener('pointercancel',finish,{passive:true});
+}
+installVerticalDragScroll(setup,{ignoreResults:true,excludeControls:true});
+const searchResults=$('#search-results');
+installVerticalDragScroll(searchResults);
+searchResults.addEventListener('keydown',event=>{
+  if(event.target!==searchResults)return;
+  const page=Math.max(48,Math.floor(searchResults.clientHeight*.8));
+  let top=null;
+  if(event.key==='PageDown')top=searchResults.scrollTop+page;
+  else if(event.key==='PageUp')top=searchResults.scrollTop-page;
+  else if(event.key==='ArrowDown')top=searchResults.scrollTop+48;
+  else if(event.key==='ArrowUp')top=searchResults.scrollTop-48;
+  else if(event.key==='Home')top=0;
+  else if(event.key==='End')top=searchResults.scrollHeight;
+  if(top!==null){event.preventDefault();searchResults.scrollTo({top,behavior:'instant'})}
+});
+const hourlyScrollSurface=$('#hourly-list');
+hourlyScrollSurface.addEventListener('wheel',event=>{
+  const delta=Math.abs(event.deltaX)>=Math.abs(event.deltaY)?event.deltaX:event.deltaY;
+  if(!delta)return;
+  event.preventDefault();hourlyScrollSurface.scrollLeft+=delta;
+},{passive:false});
 $('#settings-edit-default').addEventListener('click',editDefaultLocation);
 $('#settings-add-location').addEventListener('click',()=>openEditor('add',{returnToSettings:true}));
 $('#setting-return-time').addEventListener('change',event=>changePreference('returnAfterSeconds',Number(event.target.value)));
