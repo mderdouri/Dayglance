@@ -483,6 +483,12 @@ def station_status_payload() -> dict[str, object]:
     result = []
     for source in _station_config.get("integrations", []):
         snapshot = station_freshness(observations.get(source["id"]), int(source["staleAfterSeconds"]))
+        status = source_status.get(source["id"], "Waiting for first reading")
+        if source["connection"] == "local-upload":
+            if snapshot["fresh"]:
+                status = "Receiving local uploads"
+            elif snapshot["available"]:
+                status = "Last local reading is stale"
         result.append({
             "id": source["id"],
             "name": source["name"],
@@ -490,7 +496,7 @@ def station_status_payload() -> dict[str, object]:
             "provider": source["provider"],
             "connection": source["connection"],
             "staleAfterSeconds": source["staleAfterSeconds"],
-            "status": source_status.get(source["id"], "Waiting for first reading"),
+            "status": status,
             **snapshot,
         })
     return {

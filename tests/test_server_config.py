@@ -208,6 +208,20 @@ class DeviceSettingsConfigTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(data["profiles"], [])
 
+    def test_local_station_status_matches_freshness_of_received_sample(self):
+        server._station_config = {"receiver": {}, "integrations": [{"id": "local", "name": "Local station",
+                                "locationId": "home", "provider": "ambient-weather", "connection": "local-upload",
+                                "staleAfterSeconds": 600}]}
+        server._station_observations["local"] = {"observedAt": 100, "receivedAt": 100}
+        fresh = {"available": True, "fresh": True, "ageSeconds": 5, "observation": {"tempf": 70}}
+        with patch.object(server, "station_freshness", return_value=fresh):
+            payload = server.station_status_payload()
+        self.assertEqual(payload["integrations"][0]["status"], "Receiving local uploads")
+        stale = {"available": True, "fresh": False, "ageSeconds": 700, "observation": {"tempf": 70}}
+        with patch.object(server, "station_freshness", return_value=stale):
+            payload = server.station_status_payload()
+        self.assertEqual(payload["integrations"][0]["status"], "Last local reading is stale")
+
     def test_device_file_overrides_config_defaults(self):
         self.config_path.write_text(json.dumps({"startup": {"autoStart": True, "kiosk": False}}), encoding="utf-8")
         self.settings_path.write_text(json.dumps({"autoStart": False, "kiosk": True}), encoding="utf-8")
