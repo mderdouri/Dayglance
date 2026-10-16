@@ -542,7 +542,7 @@ function renderSettings(){
     actions.append(makeDefault,earlier,later,edit,remove);row.append(label,actions);holder.append(row);
   });
   if(locations.length<2){const empty=document.createElement('p');empty.className='settings-help';empty.textContent='No additional locations have been added.';holder.append(empty)}
-  else {const hint=document.createElement('p');hint.className='settings-help location-order-help';hint.textContent='The default appears first when Dayglance starts. Use the arrows to reorder other locations.';holder.append(hint)}
+  else {const hint=document.createElement('p');hint.className='settings-help location-order-help';hint.textContent='Use Make default to choose which location stays pinned first. Reorder the remaining locations with ↑ and ↓.';holder.append(hint)}
 }
 function openSettings(){
   if(!setup.hidden)return;

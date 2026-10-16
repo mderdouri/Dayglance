@@ -47,4 +47,10 @@
 html *{scrollbar-width:none!important;-ms-overflow-style:none!important}
 html *::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
 @media(max-height:520px){.setup-card .search-results{max-height:90px}}
+.default-location-row{margin:4px 0 8px;padding:10px 11px;border:1px solid #b9d5da;border-left:4px solid #4c8798;border-radius:10px;background:linear-gradient(105deg,#edf6f6 0%,#fff 78%)}
+.default-location-main{flex:1;display:grid;gap:4px;min-width:0}
+.default-location-label{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+.default-location-badge{padding:3px 7px;border:1px solid #bdd6db;border-radius:999px;background:#e4f0f1;color:#356a77;font-size:8px;font-weight:800;letter-spacing:.04em;white-space:nowrap}
+.default-location-row strong{font-size:14px}
+.default-location-help{color:#58717a;font-size:9px;line-height:1.35}
 

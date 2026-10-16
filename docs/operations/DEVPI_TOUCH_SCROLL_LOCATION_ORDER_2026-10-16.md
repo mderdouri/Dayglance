@@ -26,4 +26,10 @@ Browser simulation is not a physical-touch test. The actual DevPi panel swipe an
 - [PR #8 — precipitation radar and configurable timeouts](https://github.com/mderdouri/Dayglance/pull/8): open; GitHub Verify check passed.
 - [PR #9 — touchscreen scrolling and location management](https://github.com/mderdouri/Dayglance/pull/9): open and stacked on PR #8; local checks passed. GitHub CI is configured for pull requests targeting `main`, so it will run after PR #8 merges and PR #9 is retargeted to `main`.
 
+## Default-location clarity follow-up — 2026-10-16
+
+The location settings card now highlights the default with a **DEFAULT · FIXED FIRST** badge and explains that it opens first at startup, while only the additional locations can be reordered. The order helper clarifies that **Make default** changes the pinned first city. The screenshot linked above was refreshed at 800×480 using an isolated headless Chrome profile containing sample Washington, DC and Baltimore locations.
+
+The browser check confirmed the default card displayed Washington, DC, one additional location row was present, and no reorder arrows appeared on the default card. The DevPi refresh and resulting remote asset hashes, HTTP checks, service state, and configuration-preservation checks are recorded in the canonical Pi inventory after deployment.
+
 Machine-readable details: [DEVPI_TOUCH_SCROLL_LOCATION_ORDER_2026-10-16.json](DEVPI_TOUCH_SCROLL_LOCATION_ORDER_2026-10-16.json).
