@@ -1,0 +1,75 @@
+{
+  "project": "Dayglance",
+  "device": "DevPi",
+  "deployedAtLocal": "2026-10-15",
+  "destination": "/home/mderdouri/dayglance",
+  "display": {
+    "output": "DSI-1",
+    "resolution": "800x480",
+    "screenshot": "docs/screenshots/dayglance-radar-ux-devpi-20261015.png",
+    "screenshotSha256": "9b9243540ac719b34d5be3acbb1c6b77455226f7580de652e35de1e7ee2e14c8",
+    "content": "Live dashboard after radar controls deployment; radar page not opened by remote input."
+  },
+  "changedFiles": [
+    {
+      "path": "index.html",
+      "sha256": "1b85fbc53d149e2b3a4fcfc85cd1ad5e761c14acc1cf0f62ee6edb085bd1a064"
+    },
+    {
+      "path": "radar.js",
+      "sha256": "e7a2c395dca39d1fc6357b5f6534aac8b700cac2b4ee2a09c1c2b3f5136d48ac"
+    },
+    {
+      "path": "styles.css",
+      "sha256": "5b3271a51c2861b3d45b329e0740c28e7e1c3199d43436a75fe8e8d7a5a963ca"
+    },
+    {
+      "path": "sw.js",
+      "sha256": "a0898610b002d0663c76abd325dbcfb18bd6ce362b97831bf4266208b3fd007d"
+    }
+  ],
+  "verifiedHttp200": [
+    "/",
+    "/radar.js",
+    "/styles.css",
+    "/sw.js",
+    "/api/device-settings",
+    "/api/radar/status",
+    "/api/radar/rainviewer-metadata"
+  ],
+  "services": [
+    {
+      "name": "dayglance.service",
+      "active": true,
+      "restartCount": 0
+    },
+    {
+      "name": "dayglance-kiosk.service",
+      "active": true,
+      "restartCount": 0
+    }
+  ],
+  "preservedSettings": {
+    "configJsonSha256": "8bb79fe16b81cba7b8fe3e47712468cac72869106f82393c91a43aa6028fff18",
+    "deviceSettingsJsonSha256": "1c0d46704491ba0d67a0bd2129fecca74dd81241325b91e50a46a76bece1402c",
+    "rainbowKeyChanged": false
+  },
+  "providerState": {
+    "rainbowKeyConfigured": false,
+    "paidUsageEnabled": false,
+    "forecastTilesVerifiedOnDevice": false
+  },
+  "checks": {
+    "nodeTests": "13 passed",
+    "pythonTests": "20 passed",
+    "javascriptSyntax": "passed",
+    "shellSyntax": "passed",
+    "jsonConfig": "passed",
+    "gitDiffCheck": "passed",
+    "launcherScenario": "blocked: fixed port 8080 already in use; existing process preserved"
+  },
+  "userVisibleLimitations": [
+    "Actual radar-button taps on the touchscreen were not remotely simulated.",
+    "Rainbow forecast mode requires the user to save their own API key."
+  ]
+}

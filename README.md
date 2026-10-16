@@ -2,7 +2,7 @@
 
 Dayglance is a glanceable weather display for Raspberry Pi and other compact landscape screens. Its main view brings current conditions, a modeled air-quality estimate, a configurable temperature graph, and the next seven days together on one screen. Tap today or a forecast day for its 24-hour details, then swipe between saved places. Optional smooth city rotation lets it cycle on its own when showing more than one location.
 
-It is designed for touch-first, keyboard-free use after setup: locations and display options can be managed on screen or copied in through `config.json`. Dayglance runs as a small local Python server with a browser interface; forecasts and location search are fetched from Open-Meteo. It does not require an account or an API key for personal, non-commercial use.
+It is designed for touch-first, keyboard-free use after setup: locations and display options can be managed on screen or copied in through `config.json`. Dayglance runs as a small local Python server with a browser interface; forecasts and location search are fetched from Open-Meteo. The optional rain radar combines RainViewer's recent observed frames with Rainbow Weather's forecast frames. Rainbow forecast tiles require a user-provided API key and may incur charges after the free allowance; the standard forecast needs no key.
 
 ## What Dayglance is
 
@@ -10,7 +10,7 @@ Dayglance is a personal weather dashboard for a wall or desk display such as a R
 
 The project is intentionally lightweight for Raspberry Pi hardware: a dependency-free Python standard-library server serves a static web app, and the browser requests weather data directly from Open-Meteo. The example installation uses a Raspberry Pi 3 B+ and an 800×480 landscape touchscreen. It also runs in a regular desktop browser.
 
-Dayglance provides weather forecasts and archived past-days data through Open-Meteo, plus a modeled U.S. Air Quality Index (AQI) and PM2.5 estimate from Open-Meteo's CAMS-based Air Quality API. Air-quality values are grid-model estimates, not readings from a local sensor. Dayglance does not currently connect to personal weather stations or provide a rain-radar map; both remain possible future integrations rather than existing features.
+Dayglance provides weather forecasts and archived past-days data through Open-Meteo, plus a modeled U.S. Air Quality Index (AQI) and PM2.5 estimate from Open-Meteo's CAMS-based Air Quality API. Air-quality values are grid-model estimates, not readings from a local sensor. The optional precipitation map shows up to two hours of RainViewer observations and up to four hours of Rainbow Weather forecast frames. Provider setup, allowances, usage estimates, and billing details are in [RADAR.md](docs/guides/RADAR.md).
 
 ## Screenshots
 
@@ -24,13 +24,14 @@ Dayglance provides weather forecasts and archived past-days data through Open-Me
 - Guided first-run setup with city, region, and ZIP/postal-code search and live location suggestions.
 - Forecast refresh becomes available once a location is configured; the first-run location screen has no refresh action.
 - Current conditions, feels-like temperature, sunrise/sunset, modeled U.S. AQI and PM2.5, and a configurable temperature graph: next 24 hours, 7-day forecast, up to 16 forecast days, or archived weather data for the past 30 days.
+- Optional rain radar with selectable past-two-hour observations or next-four-hour forecast. It plays automatically after tiles load and has a configurable idle timeout, defaulting to one minute. Rainbow paid usage is off by default.
 - Hourly detail cards for today or a selected forecast day. Today starts at the current hour with no past hours; other days open centered on 8 AM. Swipe, drag, use the large arrow controls, or scroll the hourly strip.
 - Multiple saved locations with touch-friendly horizontal navigation, plus an edit control beside the city name.
 - Optional automatic sideways rotation through saved locations, with configurable 30-second, 1-minute, 5-minute, and 15-minute dwell times.
-- A settings menu and copyable `config.json` for locations, units, clock format, refresh interval, graph period, the hourly-view return timer, and optional hourly navigation buttons.
+- A settings menu and copyable `config.json` for locations, units, clock format, refresh interval, graph period, hourly-view return timer, precipitation-map idle timeout, and optional hourly navigation buttons.
 - Settings scroll by swiping or dragging over the content; the compact title and close control stay visible while you browse options. The app also supports wheel/trackpad and keyboard scrolling without showing a scrollbar.
 - Optional Raspberry Pi desktop auto-start and kiosk launch settings, configurable in `config.json` or on the Pi itself.
-- Hourly view returns after 60 seconds without interaction by default. The timer pauses while you interact and starts over after you stop; choose a different interval in Settings or `config.json`.
+- Hourly view returns after 60 seconds without interaction by default. Choose 15 seconds, 30 seconds, 1 minute, 1 minute 30 seconds, 2 minutes, 5 minutes, or stay open until closed. The timer pauses while you interact and starts over after you stop; configure it in Settings or `config.json`.
 - Inline SVG weather icons, a responsive 800×480 layout, and a cached app shell for offline startup.
 - No account or API key is needed for personal, non-commercial use of the free Open-Meteo endpoint.
 
@@ -81,7 +82,7 @@ Run the server configuration tests with `python3 -m unittest discover -s tests -
 
 ## Data source and usage
 
-Forecast, geocoding, archived-weather, and air-quality requests go directly from the browser to Open-Meteo. Air-quality values use the CAMS-based model and represent estimates, not local sensor measurements. The interface credits Open-Meteo and CAMS. Open-Meteo's free hosted API is for non-commercial use, is rate-limited, and has no uptime guarantee; review its current [pricing and usage terms](https://open-meteo.com/en/pricing) before using Dayglance commercially or at scale. The underlying weather and air-quality datasets are provided under CC BY 4.0 and require attribution. Location search uses GeoNames data through Open-Meteo. See [third-party notices](docs/guides/THIRD_PARTY_NOTICES.md).
+Forecast, geocoding, archived-weather, and air-quality requests go directly from the browser to Open-Meteo. Air-quality values use the CAMS-based model and represent estimates, not local sensor measurements. The interface credits Open-Meteo and CAMS. Open-Meteo's free hosted API is for non-commercial use, is rate-limited, and has no uptime guarantee; review its current [pricing and usage terms](https://open-meteo.com/en/pricing) before using Dayglance commercially or at scale. The underlying weather and air-quality datasets are provided under CC BY 4.0 and require attribution. Location search uses GeoNames data through Open-Meteo. Rain radar uses separate RainViewer and Rainbow Weather services and terms; see [radar setup and pricing](docs/guides/RADAR.md) and [third-party notices](docs/guides/THIRD_PARTY_NOTICES.md).
 
 ## Project status
 

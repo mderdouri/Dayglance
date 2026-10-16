@@ -20,6 +20,10 @@ jobs:
 
       - name: Check JavaScript syntax
         run: node --check app.js
+      - name: Check and test precipitation radar
+        run: |
+          node --check radar.js
+          node --test tests/test-radar.js
       - name: Check and test hourly detail windows
         run: |
           node --check detail-hours.js

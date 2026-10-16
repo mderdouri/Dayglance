@@ -12,7 +12,8 @@
       "validInputs": "For a searched location, provide query as a city, region, or postal code; countryCode is an optional ISO country code such as US. For a fixed location, provide numeric latitude and longitude instead. Each id must be unique."
     },
     "preferences": {
-      "returnAfterSeconds": {"meaning": "Idle time before the hourly view closes; defaults to 60 seconds and 0 keeps it open.", "validValues": [0, 30, 60, 90, 120]},
+      "returnAfterSeconds": {"meaning": "Idle time before the hourly view closes; defaults to 60 seconds and 0 keeps it open.", "validValues": [0, 15, 30, 60, 90, 120, 300], "examples": {"15": "15 seconds", "30": "30 seconds", "60": "1 minute (default)", "90": "1 minute 30 seconds", "120": "2 minutes", "300": "5 minutes", "0": "Stay open until closed"}},
+      "radarIdleTimeoutSeconds": {"meaning": "Inactivity time before the precipitation map closes; defaults to 60 seconds. Touch, pointer, keyboard, and map scrolling reset the timer.", "validValues": [15, 30, 60, 300], "examples": {"15": "15 seconds", "30": "30 seconds", "60": "1 minute", "300": "5 minutes"}},
       "temperatureUnit": {"meaning": "Temperature display and forecast request units.", "validValues": ["fahrenheit", "celsius"]},
       "measurementSystem": {"meaning": "Wind, pressure, visibility, and precipitation units.", "validValues": ["imperial", "metric"]},
       "clockFormat": {"meaning": "Hour display format.", "validValues": ["system", "12", "24"]},
@@ -25,12 +26,19 @@
     "startup": {
       "autoStart": "True starts Dayglance at desktop login; enabling it in local Pi Settings installs the login hook automatically. For JSON-only setup, run install-autostart.sh once. False leaves it off.",
       "kiosk": "true opens Chromium in full-screen kiosk mode; false opens a maximized window."
+    },
+    "radar": {
+      "meaning": "The optional radar uses RainViewer for the past and Rainbow Weather for forecast tiles. RainViewer requires no key. Rainbow credentials are device-local and must never be placed in this public config file.",
+      "setup": "Create a Rainbow developer account, then enter its API key in Settings > Radar & Provider Account on the Pi's local screen.",
+      "paidUsage": "Pay-as-you-go is disabled by default. Enable it explicitly in the local settings UI after checking the Rainbow account dashboard. The local free-allowance stop only counts this Dayglance server.",
+      "documentation": "See RADAR.md for current free allowances, provider usage tracking, and pay-as-you-go rates."
     }
   },
   "defaultLocation": null,
   "locations": [],
   "preferences": {
     "returnAfterSeconds": 60,
+    "radarIdleTimeoutSeconds": 60,
     "temperatureUnit": "fahrenheit",
     "measurementSystem": "imperial",
     "clockFormat": "system",
@@ -45,4 +53,3 @@
     "kiosk": true
   }
 }
-
