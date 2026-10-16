@@ -29,6 +29,7 @@ DEVICE_SETTINGS_PATH = ROOT / "device-settings.json"
 RADAR_CREDENTIALS_PATH = ROOT / "device-radar-key.json"
 RADAR_USAGE_PATH = ROOT / "device-radar-usage.json"
 STATION_CREDENTIALS_PATH = ROOT / "device-station-credentials.json"
+STATION_SETTINGS_PATH = ROOT / "device-station-settings.json"
 CONFIG_PATH = ROOT / "config.json"
 AUTOSTART_PATH = Path.home() / ".config" / "autostart" / "dayglance.desktop"
 STARTUP_SUPPORTED = sys.platform.startswith("linux")
@@ -69,9 +70,19 @@ def read_radar_key() -> str:
 def write_private_json(path: Path, data: dict[str, object]) -> None:
     temporary = path.with_name(f".{path.name}.tmp")
     try:
-        temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         if os.name == "posix":
-            temporary.chmod(0o600)
+            flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+            descriptor = os.open(temporary, flags, 0o600)
+            try:
+                os.fchmod(descriptor, 0o600)
+                with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                    descriptor = -1
+                    stream.write(json.dumps(data, indent=2) + "\n")
+            finally:
+                if descriptor >= 0:
+                    os.close(descriptor)
+        else:
+            temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         temporary.replace(path)
     except OSError:
         temporary.unlink(missing_ok=True)
@@ -153,7 +164,7 @@ def save_paid_usage_setting(enabled: bool) -> None:
         _usage_last_write = time.monotonic()
 
 
-def load_station_configuration() -> dict[str, object]:
+def load_station_configuration(*, managed_override: list[dict[str, object]] | None = None) -> dict[str, object]:
     """Read and validate city-scoped local and cloud station definitions."""
     try:
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
@@ -163,6 +174,22 @@ def load_station_configuration() -> dict[str, object]:
     raw_sources = config.get("stationIntegrations", []) if isinstance(config, dict) else []
     if not isinstance(raw_receiver, dict) or not isinstance(raw_sources, list):
         raise ValueError("stationReceiver must be an object and stationIntegrations must be an array")
+    config_source_ids = {source["id"] for source in raw_sources if isinstance(source, dict) and isinstance(source.get("id"), str)}
+
+    if managed_override is None:
+        try:
+            station_settings = json.loads(STATION_SETTINGS_PATH.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            station_settings = {}
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            raise ValueError("Device station settings are unreadable; fix device-station-settings.json") from error
+        managed_override = station_settings.get("integrations", []) if isinstance(station_settings, dict) else None
+    if not isinstance(managed_override, list):
+        raise ValueError("Device station settings integrations must be an array")
+    for managed_source in managed_override:
+        if not isinstance(managed_source, dict) or managed_source.get("connection") != "cloud-api":
+            raise ValueError("Settings can manage cloud API stations only; local upload stays in config.json")
+        raw_sources.append({**managed_source, "managed": True, "enabled": True})
 
     receiver = {
         "bindAddress": raw_receiver.get("bindAddress", "127.0.0.1"),
@@ -247,6 +274,7 @@ def load_station_configuration() -> dict[str, object]:
             "provider": provider,
             "connection": connection,
             "staleAfterSeconds": stale_after,
+            "managed": source.get("managed") is True and source_id not in config_source_ids,
         }
         if local_source_ip:
             integration["sourceIp"] = local_source_ip
@@ -268,6 +296,68 @@ def read_station_credentials() -> dict[str, object]:
     except (OSError, ValueError, json.JSONDecodeError):
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def station_credentials_for_update() -> dict[str, object]:
+    if not STATION_CREDENTIALS_PATH.exists():
+        return {}
+    try:
+        data = json.loads(STATION_CREDENTIALS_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise ValueError("Existing device-station-credentials.json is unreadable; fix it before saving keys") from error
+    if not isinstance(data, dict):
+        raise ValueError("Existing device-station-credentials.json must contain a JSON object")
+    return data
+
+
+def station_credentials_metadata() -> list[dict[str, object]]:
+    """Return profile labels and presence only; credential values never reach the browser."""
+    credentials = read_station_credentials()
+    result = []
+    for provider, account_key, secret_keys in (
+        ("ambient-weather", "ambientWeatherAccounts", ("apiKey", "applicationKey")),
+        ("weather-underground", "weatherUndergroundAccounts", ("apiKey",)),
+    ):
+        accounts = credentials.get(account_key, {})
+        if not isinstance(accounts, dict):
+            continue
+        for profile_id, account in accounts.items():
+            if not isinstance(profile_id, str) or not isinstance(account, dict):
+                continue
+            result.append({
+                "provider": provider,
+                "id": profile_id,
+                "configured": all(isinstance(account.get(key), str) and bool(account[key].strip()) for key in secret_keys),
+            })
+    return result
+
+
+def station_settings_payload() -> dict[str, object]:
+    return {
+        "profiles": station_credentials_metadata(),
+        "integrations": [
+            {key: value for key, value in source.items() if key not in ("sourceIp",)}
+            for source in _station_config.get("integrations", [])
+        ],
+    }
+
+
+def validate_managed_station_sources(raw_sources: object) -> list[dict[str, object]]:
+    if not isinstance(raw_sources, list) or len(raw_sources) > 100:
+        raise ValueError("Stations must be a list of at most 100 entries")
+    normalized = []
+    for source in raw_sources:
+        if not isinstance(source, dict):
+            raise ValueError("Each station must be an object")
+        allowed = {"id", "name", "provider", "connection", "credentialsId", "deviceId", "stationId", "locationId", "staleAfterSeconds"}
+        if set(source) - allowed:
+            raise ValueError("Station entry contains unsupported fields")
+        if source.get("connection") != "cloud-api" or source.get("provider") not in ("ambient-weather", "weather-underground"):
+            raise ValueError("Settings can add Ambient Weather or Weather Underground cloud stations")
+        item = dict(source)
+        item["enabled"] = True
+        normalized.append(item)
+    return normalized
 
 
 def refresh_ambient_weather_cloud_once() -> None:
@@ -379,8 +469,7 @@ def poll_cloud_station_data() -> None:
 
 
 def start_station_cloud_poller() -> threading.Thread | None:
-    if not any(source["connection"] == "cloud-api" for source in _station_config.get("integrations", [])):
-        return None
+    # Keep an idle poller available so stations added in Settings take effect live.
     _station_cloud_stop.clear()
     thread = threading.Thread(target=poll_cloud_station_data, name="dayglance-station-cloud", daemon=True)
     thread.start()
@@ -644,6 +733,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
         requested = unquote(urlsplit(self.path).path).lstrip("/") or "index.html"
+        if requested == "api/station-settings":
+            if not self.is_local_app_request():
+                self.send_error(403, "Station settings are restricted to the local Dayglance display")
+                return
+            self.send_json(200, station_settings_payload())
+            return
         if requested == "api/local-stations":
             if not self.is_local_app_request():
                 self.send_error(403, "Station readings are restricted to the local Dayglance display")
@@ -738,6 +833,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
         requested = unquote(urlsplit(self.path).path).lstrip("/")
+        if requested == "api/station-settings":
+            self.handle_station_settings()
+            return
+        if requested == "api/station-credentials":
+            self.handle_station_credentials()
+            return
         if requested == "api/radar/credential":
             self.handle_radar_credential()
             return
@@ -788,6 +889,123 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(500, "Could not save device settings")
             return
         self.send_json(200, self.read_device_settings())
+
+    def read_local_json_body(self, maximum: int) -> dict[str, object] | None:
+        if not self.is_local_app_request():
+            self.send_error(403, "Station settings can only be changed from the local Dayglance display")
+            return None
+        if self.headers.get_content_type() != "application/json":
+            self.send_error(415, "Expected application/json")
+            return None
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+            if size <= 0 or size > maximum:
+                raise ValueError("Invalid request size")
+            data = json.loads(self.rfile.read(size))
+            if not isinstance(data, dict):
+                raise ValueError("Expected a JSON object")
+            return data
+        except (ValueError, json.JSONDecodeError) as error:
+            self.send_json(400, {"error": str(error)})
+            return None
+
+    def handle_station_settings(self) -> None:
+        data = self.read_local_json_body(65536)
+        if data is None:
+            return
+        if set(data) != {"integrations"}:
+            self.send_json(400, {"error": "Expected the integrations list"})
+            return
+        try:
+            integrations = validate_managed_station_sources(data["integrations"])
+            validated = load_station_configuration(managed_override=integrations)
+        except ValueError as error:
+            self.send_json(400, {"error": str(error)})
+            return
+        try:
+            write_private_json(STATION_SETTINGS_PATH, {"integrations": integrations})
+        except OSError:
+            self.send_json(500, {"error": "Could not save station settings on this device."})
+            return
+        global _station_config
+        previous_sources = {source["id"]: source for source in _station_config.get("integrations", [])}
+        _station_config = validated
+        active_ids = {str(source["id"]) for source in validated["integrations"]}
+        changed_ids = {
+            source_id for source_id, source in {item["id"]: item for item in validated["integrations"]}.items()
+            if source_id in previous_sources and any(previous_sources[source_id].get(key) != source.get(key) for key in ("provider", "connection", "deviceId", "stationId", "credentialsId"))
+        }
+        with _station_lock:
+            for source_id in (set(_station_observations) - active_ids) | changed_ids:
+                _station_observations.pop(source_id, None)
+                _station_source_status.pop(source_id, None)
+        self.send_json(200, station_settings_payload())
+
+    def handle_station_credentials(self) -> None:
+        data = self.read_local_json_body(8192)
+        if data is None:
+            return
+        provider = data.get("provider")
+        profile_id = data.get("id")
+        if provider not in ("ambient-weather", "weather-underground") or not isinstance(profile_id, str) or not 1 <= len(profile_id.strip()) <= 80 or any(not (char.isalnum() or char in "-_ ") for char in profile_id):
+            self.send_json(400, {"error": "Choose a short profile name using letters, numbers, spaces, hyphens or underscores."})
+            return
+        required = ("apiKey", "applicationKey") if provider == "ambient-weather" else ("apiKey",)
+        if set(data) != {"provider", "id", *required}:
+            self.send_json(400, {"error": "Provide all required key fields for this provider."})
+            return
+        secrets = {key: data.get(key) for key in required}
+        if any(not isinstance(value, str) or not 8 <= len(value.strip()) <= 512 for value in secrets.values()):
+            self.send_json(400, {"error": "Enter each provider key (8 to 512 characters)."})
+            return
+        try:
+            credentials = station_credentials_for_update()
+        except ValueError as error:
+            self.send_json(409, {"error": str(error)})
+            return
+        account_key = "ambientWeatherAccounts" if provider == "ambient-weather" else "weatherUndergroundAccounts"
+        accounts = credentials.get(account_key, {})
+        if not isinstance(accounts, dict):
+            accounts = {}
+        accounts[profile_id.strip()] = {key: value.strip() for key, value in secrets.items()}
+        credentials[account_key] = accounts
+        try:
+            write_private_json(STATION_CREDENTIALS_PATH, credentials)
+        except OSError:
+            self.send_json(500, {"error": "Could not save provider keys on this device."})
+            return
+        self.send_json(200, {"profiles": station_credentials_metadata(), "saved": True})
+
+    def handle_station_credential_delete(self, profile_path: str) -> None:
+        if not self.is_local_app_request():
+            self.send_error(403, "Station credentials can only be managed from the local Dayglance display")
+            return
+        parts = profile_path.split("/", 1)
+        if len(parts) != 2 or parts[0] not in ("ambient-weather", "weather-underground") or not parts[1]:
+            self.send_error(400, "Invalid provider profile")
+            return
+        provider, profile_id = parts
+        if any(source.get("credentialsId") == profile_id and source.get("provider") == provider for source in _station_config.get("integrations", [])):
+            self.send_json(409, {"error": "Remove or reassign stations that use this profile first."})
+            return
+        try:
+            credentials = station_credentials_for_update()
+        except ValueError as error:
+            self.send_json(409, {"error": str(error)})
+            return
+        account_key = "ambientWeatherAccounts" if provider == "ambient-weather" else "weatherUndergroundAccounts"
+        accounts = credentials.get(account_key, {})
+        if not isinstance(accounts, dict) or profile_id not in accounts:
+            self.send_error(404, "Provider profile not found")
+            return
+        accounts.pop(profile_id, None)
+        credentials[account_key] = accounts
+        try:
+            write_private_json(STATION_CREDENTIALS_PATH, credentials)
+        except OSError:
+            self.send_json(500, {"error": "Could not remove provider keys from this device."})
+            return
+        self.send_json(200, {"profiles": station_credentials_metadata(), "removed": True})
 
     def handle_radar_credential(self) -> None:
         if not self.is_local_app_request():
@@ -860,6 +1078,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
         requested = unquote(urlsplit(self.path).path).lstrip("/")
+        if requested.startswith("api/station-credentials/"):
+            self.handle_station_credential_delete(requested.removeprefix("api/station-credentials/"))
+            return
         if requested != "api/radar/credential":
             self.send_error(404, "File not found")
             return

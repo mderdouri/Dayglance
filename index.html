@@ -137,14 +137,30 @@
             </section>
             <section class="settings-section station-settings" id="station-settings">
               <h2>Local Weather Stations</h2>
-              <div class="station-supported-options" aria-label="Supported weather-station connections">
-                <div class="station-supported-heading"><strong>Supported source types</strong><span class="station-config-badge">Config file · read-only</span></div>
-                <p class="settings-help station-reference-note">Reference only—these are not input fields. Add station sources in <code>config.json</code>; enter private cloud keys in <code>device-station-credentials.json</code>.</p>
-                <div class="station-option-list">
-                  <div class="station-option"><strong>Ambient Weather</strong><small>Local upload · Cloud API</small></div>
-                  <div class="station-option"><strong>Weather Underground PWS</strong><small>Cloud API</small></div>
-                </div>
-                <p class="settings-help station-restart-note">Restart Dayglance after changing these files.</p>
+              <p class="settings-help">Connect one station to a saved city. Cloud profiles can be reused by multiple stations; keys stay on this Pi and are never shown again after saving. Cloud changes apply live. Config-defined sources are labeled “From config.json.” Local uploads are still configured through <code>config.json</code> and need a service restart.</p>
+              <div class="station-manager-block">
+                <h3>Provider key profiles</h3>
+                <div id="station-profiles-list" class="station-profiles-list"></div>
+                <form id="station-profile-form" class="station-form">
+                  <label>Provider<select id="station-profile-provider"><option value="ambient-weather">Ambient Weather</option><option value="weather-underground">Weather Underground</option></select></label>
+                  <label>Profile name<input id="station-profile-id" maxlength="80" autocomplete="off" placeholder="Home account" required /></label>
+                  <label>User API key<input id="station-profile-api-key" type="password" autocomplete="new-password" required /></label>
+                  <label id="station-app-key-field">Application key<input id="station-profile-app-key" type="password" autocomplete="new-password" required /></label>
+                  <button class="small-action" type="submit">Save key profile</button>
+                </form>
+                <p class="settings-help">Saving the same provider and profile name replaces those keys. Dayglance does not call the provider until a station uses the profile; the next polling cycle reports whether the key works.</p>
+              </div>
+              <div class="station-manager-block">
+                <h3>Add or edit a cloud station</h3>
+                <form id="station-source-form" class="station-form">
+                  <label>Station name<input id="station-source-name" maxlength="80" required placeholder="Backyard station" /></label>
+                  <label>Provider<select id="station-source-provider"><option value="ambient-weather">Ambient Weather</option><option value="weather-underground">Weather Underground</option></select></label>
+                  <label id="station-device-id-field">Device MAC<input id="station-device-id" maxlength="17" placeholder="00:11:22:33:44:55" /></label>
+                  <label id="station-pws-id-field" hidden>Weather Underground station ID<input id="station-pws-id" maxlength="32" placeholder="KDCWASHINGTON123" /></label>
+                  <label>Credential profile<select id="station-source-profile" required></select></label>
+                  <label>Associate with city<select id="station-source-city" required></select></label>
+                  <div class="station-form-actions"><button class="small-action" type="submit">Save station</button><button class="small-action" id="station-source-cancel" type="button" hidden>Cancel edit</button></div>
+                </form>
               </div>
               <div id="station-integrations-list"></div>
               <p class="settings-help">A city can use one configured station for current observations. Forecasts stay with the weather provider. Weathercloud does not currently provide an official API for retrieving station data.</p>
