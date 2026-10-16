@@ -35,4 +35,5 @@
 @media(max-width:650px){.radar-screen{inset:48px 0 0}.radar-controls{gap:5px}.radar-mode .small-action{padding:0 7px;font-size:9px}.radar-frame-time{font-size:9px}}
 @media(max-height:420px){.radar-screen{inset:42px 0 0;padding-top:4px}.radar-heading{padding-bottom:3px}.radar-controls{padding:2px}.radar-mode .small-action{min-height:28px!important}.radar-map{min-height:60px}}
 .radar-settings .paid-usage-row{margin-top:8px}.paid-usage-row>span{display:grid;gap:3px}.paid-usage-row button{min-width:116px}.paid-usage-row button[aria-pressed="true"]{border-color:#e5c8bd;background:#fff4ee;color:#9a4a2e}.paid-usage-row button:disabled{opacity:.5;cursor:not-allowed}
+.place-title{align-items:flex-start}.place-name-group{min-width:0;flex:1}.place-title h1{font-size:clamp(16px,2.7vw,22px);line-height:1.12;overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere}.place-region{margin:3px 0 0!important;color:var(--muted);font-size:10px;line-height:1.2;overflow-wrap:anywhere}
 

@@ -12,6 +12,10 @@ This 800×480 browser capture uses synthetic test forecast and station readings 
 
 ![Earlier DevPi dashboard capture](dayglance-devpi-20261015.png)
 
+![Dayglance dashboard preview with a prominent city name, smaller region and country, and the edit button](dayglance-city-header-20261016.png)
+
+This interface preview uses simulated forecast values; it demonstrates the location heading layout, not live conditions.
+
 ## Forecast details
 
 ![Hourly detail cards with touch-friendly navigation](hourly-details.png)
