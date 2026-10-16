@@ -6,6 +6,10 @@ All project screenshots are kept in this folder so they are easy to find and do 
 
 ![Live DevPi dashboard with the modeled air-quality estimate](devpi-air-quality-2026-10-15.png)
 
+![Dashboard preview with current observations from an associated local weather station](dayglance-local-station-dashboard-20261016.png)
+
+This 800×480 browser capture uses synthetic test forecast and station readings to verify the local-station UI; it is not a measurement from the physical station.
+
 ![Earlier DevPi dashboard capture](dayglance-devpi-20261015.png)
 
 ## Forecast details
@@ -23,6 +27,8 @@ All project screenshots are kept in this folder so they are easy to find and do 
 ![Settings with location and startup controls](dayglance-settings-location-first-20261015.png)
 
 ![Settings showing the hourly view return timer and one-minute default](dayglance-hourly-timeout-settings-20261016.png)
+
+![Settings showing the city assignment for a local weather station](dayglance-local-station-settings-20261016.png)
 
 ![Vertically swipeable settings with a pinned close control](settings-touch-scroll.jpg)
 

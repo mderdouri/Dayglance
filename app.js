@@ -15,8 +15,11 @@ const settingsScreen = $('#settings-screen');
 const radarScreen = $('#radar-screen');
 const loading = $('#loading');
 const setupError = $('#setup-error');
-let saved = {userLocations:[],overrides:{},forecasts:{},histories:{},resolved:{},preferences:{}};
+let saved = {userLocations:[],overrides:{},forecasts:{},histories:{},resolved:{},preferences:{},stationAssociations:{}};
 let preferences = {...DEFAULT_PREFERENCES};
+let stationIntegrations = [];
+let stationSamples = {};
+let stationReceiverStatus = 'disabled';
 let deviceSettings = {autoStart:false,kiosk:true,autostartInstalled:false,startupSupported:false};
 let configuredLocations = [];
 let locations = [];
@@ -166,10 +169,13 @@ function normalizeConfigLocation(area,index){
 async function initialize(){
   let config=FALLBACK_CONFIG;
   try{const response=await fetch(CONFIG_URL,{cache:'no-store'});if(response.ok){const candidate=await response.json();if(candidate&&Object.hasOwn(candidate,'defaultLocation'))config=candidate}}catch{}
+  stationIntegrations=Array.isArray(config.stationIntegrations)?config.stationIntegrations.filter(source=>source&&source.enabled===true&&source.provider==='ambient-weather'&&source.connection==='local-upload'&&typeof source.id==='string'):[];
   const configPreferences=config.preferences&&typeof config.preferences==='object'&&!Array.isArray(config.preferences)?Object.fromEntries(Object.entries(config.preferences).filter(([key])=>Object.hasOwn(DEFAULT_PREFERENCES,key))):{};
   configuredLocations=[normalizeConfigLocation(config.defaultLocation,0),...(config.locations||[]).map((area,index)=>normalizeConfigLocation(area,index+1))].filter(Boolean);
   const stored=readSaved(),signature=configSignature(config);
-  saved={defaultLocation:stored.defaultLocation||null,userLocations:Array.isArray(stored.userLocations)?stored.userLocations:[],hiddenLocationIds:Array.isArray(stored.hiddenLocationIds)?stored.hiddenLocationIds:[],overrides:stored.overrides&&typeof stored.overrides==='object'?stored.overrides:{},forecasts:stored.forecasts&&typeof stored.forecasts==='object'?stored.forecasts:{},histories:stored.histories&&typeof stored.histories==='object'?stored.histories:{},resolved:stored.resolved&&typeof stored.resolved==='object'?stored.resolved:{},preferences:stored.preferences&&typeof stored.preferences==='object'?stored.preferences:{},configSignature:signature};
+  const storedAssociations=stored.stationAssociations&&typeof stored.stationAssociations==='object'&&!Array.isArray(stored.stationAssociations)?stored.stationAssociations:{};
+  const stationAssociations=Object.fromEntries(stationIntegrations.map(source=>[source.id,Object.hasOwn(storedAssociations,source.id)?storedAssociations[source.id]:(typeof source.locationId==='string'?source.locationId:'')]));
+  saved={defaultLocation:stored.defaultLocation||null,userLocations:Array.isArray(stored.userLocations)?stored.userLocations:[],hiddenLocationIds:Array.isArray(stored.hiddenLocationIds)?stored.hiddenLocationIds:[],overrides:stored.overrides&&typeof stored.overrides==='object'?stored.overrides:{},forecasts:stored.forecasts&&typeof stored.forecasts==='object'?stored.forecasts:{},histories:stored.histories&&typeof stored.histories==='object'?stored.histories:{},resolved:stored.resolved&&typeof stored.resolved==='object'?stored.resolved:{},preferences:stored.preferences&&typeof stored.preferences==='object'?stored.preferences:{},stationAssociations,configSignature:signature};
   preferences={...DEFAULT_PREFERENCES,...configPreferences,...saved.preferences};
   delete preferences.scrollbarSize;
   delete saved.preferences.scrollbarSize;
@@ -190,6 +196,7 @@ async function initialize(){
   }
   save();rebuildLocations();currentIndex=0;showingAddPage=false;
   applyPreferences();await loadDeviceSettings();scheduleRefresh();
+  if(stationIntegrations.length){await refreshStationData();setInterval(refreshStationData,30000)}
   if(!locations.length){setStatus('Choose your location');openEditor('initial');return}
   dashboard.hidden=false;setup.hidden=true;addPage.hidden=true;
   const cached=saved.forecasts[locations[0].id],cachedData=forecastInCurrentUnits(cached);
@@ -261,6 +268,34 @@ async function loadForecast({showSpinner=true}={}){
     else{setStatus(error.message);text('place-name',area.name);dashboard.hidden=false}
   }finally{setLoading(false)}
 }
+function stationForLocation(locationId){
+  const now=Date.now();
+  for(const source of stationIntegrations){
+    if(saved.stationAssociations?.[source.id]!==locationId)continue;
+    const sample=stationSamples[source.id];
+    if(!sample?.available||!sample.observation)continue;
+    const age=Number(sample.ageSeconds||0)+Math.max(0,Math.floor((now-sample.clientReceivedAt)/1000));
+    const staleAfter=Number(sample.staleAfterSeconds||600);
+    if(sample.fresh&&age<=staleAfter)return {source,sample,observation:sample.observation,age};
+  }
+  return null;
+}
+async function refreshStationData(){
+  if(!stationIntegrations.length)return;
+  try{
+    const response=await fetch('./api/local-stations',{cache:'no-store'});
+    if(!response.ok)throw new Error('Station status unavailable');
+    const payload=await response.json(),receivedAt=Date.now();
+    stationReceiverStatus=typeof payload.receiverStatus==='string'?payload.receiverStatus:'unknown';
+    stationSamples=Object.fromEntries((Array.isArray(payload.integrations)?payload.integrations:[]).map(sample=>[sample.id,{...sample,clientReceivedAt:receivedAt}]));
+    if(currentForecast&&locations[currentIndex])render(currentForecast,locations[currentIndex]);
+    if(!settingsScreen.hidden)renderStationSettings();
+  }catch{
+    // A station receiver outage must not interrupt forecast display; the last sample ages out in memory.
+    stationReceiverStatus='unreachable';
+    if(currentForecast&&locations[currentIndex])render(currentForecast,locations[currentIndex]);
+  }
+}
 function render(data,location){
   const current=data.current,daily=data.daily,hourly=data.hourly;
   const currentKind=weatherType(current.weather_code,Boolean(current.is_day));
@@ -268,9 +303,23 @@ function render(data,location){
   $('#current-icon').innerHTML=currentKind.icon;text('current-temperature',safeNumber(current.temperature_2m));$('#current-temperature-unit').textContent=temperatureSuffix();text('current-summary',currentKind.label);text('feels-like',`${safeNumber(current.apparent_temperature)}${temperatureSuffix()}`);
   text('sunrise',daily.sunrise?.[0]?localHour(daily.sunrise[0]):'—');text('sunset',daily.sunset?.[0]?localHour(daily.sunset[0]):'—');
   const metric=preferences.measurementSystem==='metric';
+  text('wind-label','Wind');text('humidity-label','Humidity');text('pressure-label','Pressure');text('uv-label','UV index');
   text('wind',`${safeNumber(current.wind_speed_10m)} ${metric?'km/h':'mph'} ${compass(current.wind_direction_10m)}`);text('humidity',`${safeNumber(current.relative_humidity_2m)}%`);
   text('pressure',Number.isFinite(Number(current.pressure_msl))?metric?`${safeNumber(current.pressure_msl)} hPa`:`${(current.pressure_msl*0.029529983).toFixed(2)} inHg`:'—');text('uv',safeNumber(current.uv_index,1));
   text('visibility',Number.isFinite(Number(current.visibility))?metric?`${(current.visibility/1000).toFixed(1)} km`:`${(current.visibility/1609.344).toFixed(1)} mi`:'—');
+  const localStation=stationForLocation(location.id),stationStatus=$('#station-observation-status');
+  stationStatus.hidden=!localStation;
+  if(localStation){
+    const observation=localStation.observation,age=localStation.age;
+    stationStatus.textContent=`Observed by ${localStation.source.name} · ${age<60?'just now':`${Math.floor(age/60)} min ago`}`;
+    const hasStationTemperature=Number.isFinite(Number(observation.tempf));
+    if(hasStationTemperature)text('current-temperature',safeNumber(metric?(Number(observation.tempf)-32)*5/9:Number(observation.tempf)));
+    text('current-summary',hasStationTemperature?'Local station observation':`Forecast · ${currentKind.label}`);
+    if(Number.isFinite(Number(observation.windspeedmph))){const speed=Number(observation.windspeedmph)*(metric?1.609344:1);text('wind',`${safeNumber(speed)} ${metric?'km/h':'mph'} ${compass(observation.winddir)}`);text('wind-label','Wind · station')}
+    if(Number.isFinite(Number(observation.humidity))){text('humidity',`${safeNumber(observation.humidity)}%`);text('humidity-label','Humidity · station')}
+    if(Number.isFinite(Number(observation.baromin))){const pressure=Number(observation.baromin)*(metric?33.8638867:1);text('pressure',metric?`${safeNumber(pressure)} hPa`:`${pressure.toFixed(2)} inHg`);text('pressure-label','Pressure · station')}
+    if(Number.isFinite(Number(observation.uv))){text('uv',safeNumber(observation.uv,1));text('uv-label','UV · station')}
+  }
   const air=window.DayglanceAirQuality.formatAirQuality(data.airQuality);
   text('air-quality-value',air.value);text('air-quality-pm',air.pm25);
   $('#air-quality-value').title=air.category;$('#air-quality-value').setAttribute('aria-label',air.ariaLabel);
@@ -533,6 +582,32 @@ function renderSettings(){
     actions.append(edit,remove);row.append(label,actions);holder.append(row);
   });
   if(locations.length<2){const empty=document.createElement('p');empty.className='settings-help';empty.textContent='No additional locations have been added.';holder.append(empty)}
+  $('#station-settings').hidden=!stationIntegrations.length;
+  renderStationSettings();
+}
+function renderStationSettings(){
+  const holder=$('#station-integrations-list');if(!holder)return;holder.replaceChildren();
+  for(const source of stationIntegrations){
+    const row=document.createElement('div');row.className='station-integration-row';
+    const label=document.createElement('div');label.className='station-integration-name';
+    const name=document.createElement('strong');name.textContent=source.name||'Local weather station';
+    const sample=stationSamples[source.id];
+    const age=sample?.available?Number(sample.ageSeconds||0)+Math.max(0,Math.floor((Date.now()-sample.clientReceivedAt)/1000)):null;
+    const fresh=sample?.fresh&&age<=Number(sample.staleAfterSeconds||600);
+    const status=document.createElement('small');status.textContent=stationReceiverStatus.startsWith('error:')?`Receiver error · ${stationReceiverStatus.slice(7)}`:stationReceiverStatus==='unreachable'?'Unable to read station receiver status':fresh?`Receiving data · ${age<60?'just now':`${Math.floor(age/60)} min ago`}`:sample?.available?'Last reading is stale':'Waiting for first reading';
+    label.append(name,status);
+    const select=document.createElement('select');select.setAttribute('aria-label',`City for ${source.name||'local weather station'}`);
+    const unassigned=document.createElement('option');unassigned.value='';unassigned.textContent='Not assigned to a city';select.append(unassigned);
+    const assigned=saved.stationAssociations[source.id]||'';
+    for(const location of locations){
+      const option=document.createElement('option');option.value=location.id;option.textContent=`${location.name}${location.id===locations[0]?.id?' · default':''}`;
+      const usedByOther=stationIntegrations.some(other=>other.id!==source.id&&saved.stationAssociations[other.id]===location.id);
+      option.disabled=usedByOther;select.append(option);
+    }
+    select.value=locations.some(location=>location.id===assigned)?assigned:'';
+    select.addEventListener('change',()=>{saved.stationAssociations[source.id]=select.value;save();renderStationSettings();if(currentForecast&&locations[currentIndex])render(currentForecast,locations[currentIndex]);$('#settings-status').textContent='Station association saved on this device.'});
+    row.append(label,select);holder.append(row);
+  }
 }
 function openSettings(){
   if(!setup.hidden)return;
@@ -545,6 +620,7 @@ function removeLocation(id){
   const currentId=locations[currentIndex]?.id;
   if(configuredLocations.some(item=>item.id===id))saved.hiddenLocationIds=[...new Set([...saved.hiddenLocationIds,id])];
   if(saved.defaultLocation?.id===id)saved.defaultLocation=null;
+  for(const [stationId,locationId] of Object.entries(saved.stationAssociations))if(locationId===id)saved.stationAssociations[stationId]='';
   saved.userLocations=saved.userLocations.filter(item=>item.id!==id);
   delete saved.overrides[id];delete saved.resolved[id];delete saved.forecasts[id];delete saved.histories[id];save();rebuildLocations();
   const newIndex=locations.findIndex(item=>item.id===currentId);currentIndex=newIndex>=0?newIndex:0;updateAreaPosition();renderSettings();
@@ -602,6 +678,14 @@ settingsScreen.addEventListener('pointerdown',event=>{
   if(event.pointerType!=='mouse'||event.button!==0||event.target.closest('button,input,select,textarea,a,[role="button"]'))return;
   settingsPan={pointerId:event.pointerId,startY:event.clientY,startTop:settingsScreen.scrollTop,moved:false};
   settingsScreen.classList.add('settings-dragging');
+});
+settingsScreen.addEventListener('keydown',event=>{
+  if(event.target.closest('button,input,select,textarea,a,[contenteditable="true"]'))return;
+  const pageStep=Math.max(80,settingsScreen.clientHeight*.8),maxScroll=settingsScreen.scrollHeight-settingsScreen.clientHeight;
+  const movement={ArrowDown:40,ArrowUp:-40,PageDown:pageStep,PageUp:-pageStep,' ':pageStep};
+  if(event.key==='Home'){event.preventDefault();settingsScreen.scrollTop=0;return}
+  if(event.key==='End'){event.preventDefault();settingsScreen.scrollTop=maxScroll;return}
+  if(Object.hasOwn(movement,event.key)){event.preventDefault();settingsScreen.scrollTop=Math.max(0,Math.min(maxScroll,settingsScreen.scrollTop+movement[event.key]))}
 });
 window.addEventListener('pointermove',event=>{
   if(!settingsPan||event.pointerId!==settingsPan.pointerId)return;

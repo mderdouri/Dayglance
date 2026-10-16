@@ -10,13 +10,15 @@ Dayglance is a personal weather dashboard for a wall or desk display such as a R
 
 The project is intentionally lightweight for Raspberry Pi hardware: a dependency-free Python standard-library server serves a static web app, and the browser requests weather data directly from Open-Meteo. The example installation uses a Raspberry Pi 3 B+ and an 800×480 landscape touchscreen. It also runs in a regular desktop browser.
 
-Dayglance provides weather forecasts and archived past-days data through Open-Meteo, plus a modeled U.S. Air Quality Index (AQI) and PM2.5 estimate from Open-Meteo's CAMS-based Air Quality API. Air-quality values are grid-model estimates, not readings from a local sensor. The optional precipitation map shows up to two hours of RainViewer observations and up to four hours of Rainbow Weather forecast frames. Provider setup, allowances, usage estimates, and billing details are in [RADAR.md](docs/guides/RADAR.md).
+Dayglance provides weather forecasts and archived past-days data through Open-Meteo, plus a modeled U.S. Air Quality Index (AQI) and PM2.5 estimate from Open-Meteo's CAMS-based Air Quality API. Air-quality values are grid-model estimates, not readings from a local sensor. A city can also be associated with one optional local weather-station integration; the first adapter receives Ambient Weather uploads over the LAN and labels them as live observations. Station readings remain separate from forecast data and are kept in memory. The optional precipitation map shows up to two hours of RainViewer observations and up to four hours of Rainbow Weather forecast frames. Provider setup, allowances, usage estimates, and billing details are in [RADAR.md](docs/guides/RADAR.md). See the [local station guide](docs/guides/LOCAL_STATIONS.md) for compatibility, configuration, and network setup.
 
 ## Screenshots
 
 ![Live Dayglance dashboard on DevPi](docs/screenshots/devpi-air-quality-2026-10-15.png)
 
 ![Dayglance hourly detail view](docs/screenshots/hourly-details.png)
+
+![Dayglance dashboard with a current observation from an associated local weather station](docs/screenshots/dayglance-local-station-dashboard-20261016.png)
 
 [Browse all screenshots](docs/screenshots/README.md), including setup and settings views.
 ## Features
@@ -29,6 +31,7 @@ Dayglance provides weather forecasts and archived past-days data through Open-Me
 - Multiple saved locations with touch-friendly horizontal navigation, plus an edit control beside the city name.
 - Optional automatic sideways rotation through saved locations, with configurable 30-second, 1-minute, 5-minute, and 15-minute dwell times.
 - A settings menu and copyable `config.json` for locations, units, clock format, refresh interval, graph period, hourly-view return timer, precipitation-map idle timeout, and optional hourly navigation buttons.
+- Per-city association of at most one local weather-station feed, with Ambient Weather local upload currently supported. Setup is opt-in through `config.json`; station measurements are shown on that city's dashboard, while forecasts stay forecast data.
 - Settings scroll by swiping or dragging over the content; the compact title and close control stay visible while you browse options. The app also supports wheel/trackpad and keyboard scrolling without showing a scrollbar.
 - Optional Raspberry Pi desktop auto-start and kiosk launch settings, configurable in `config.json` or on the Pi itself.
 - Hourly view returns after 60 seconds without interaction by default. Choose 15 seconds, 30 seconds, 1 minute, 1 minute 30 seconds, 2 minutes, 5 minutes, or stay open until closed. The timer pauses while you interact and starts over after you stop; configure it in Settings or `config.json`.
