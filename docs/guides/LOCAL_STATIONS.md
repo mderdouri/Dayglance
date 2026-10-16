@@ -36,7 +36,7 @@ Edit the project-root `config.json`. Set `bindAddress` to the Pi's private LAN i
 ]
 ```
 
-The addresses are examples, not a recommended range. The Pi address must be assigned to its network interface; the station source address must match the sender address seen by the Pi. `id` is unique and stable. `name` is the label shown in Settings. `locationId` can be null and is normally selected in Settings. A city can have at most one station. `staleAfterSeconds` accepts 30–3600 and controls how long a reading can be used after its observation timestamp.
+The addresses are examples, not a recommended range. The Pi address must be assigned to its network interface; the station source address must match the sender address seen by the Pi. `id` is unique and stable. `name` is the label shown in Settings. `locationId` can be null and is normally selected in Settings. A city can have at most one station, but Dayglance does not impose a three-city limit: add one `stationIntegrations` entry for each city/station pair. Keep IDs and local station source IPs unique. `staleAfterSeconds` accepts 30–3600 and controls how long a reading can be used after its observation timestamp.
 
 The listener refuses `0.0.0.0`, loopback, and public bind addresses. It accepts requests only on the configured path from configured station IPs. Keep the port limited to your trusted LAN with your router/firewall. Do not place station passwords, API keys, or other credentials in `config.json`; this config is served to the browser. The upload protocol may include an ID and password field; Dayglance ignores these values and never logs upload query strings.
 

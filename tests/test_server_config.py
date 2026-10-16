@@ -105,9 +105,15 @@ class DeviceSettingsConfigTests(unittest.TestCase):
             page = response.read().decode("utf-8")
         settings = page.split('id="station-settings"', 1)[1].split("</section>", 1)[0]
         self.assertNotIn("hidden", settings.split(">", 1)[0])
-        self.assertIn("Ambient Weather", settings)
-        self.assertIn("Local upload · Cloud API", settings)
-        self.assertIn("Weather Underground PWS", settings)
+        providers = settings.split('<div class="station-supported-options"', 1)[1].split('<div id="station-integrations-list"', 1)[0]
+        self.assertIn("Ambient Weather", providers)
+        self.assertIn("Local upload · Cloud API", providers)
+        self.assertIn("Weather Underground PWS", providers)
+        self.assertIn("Config file · read-only", providers)
+        self.assertIn("Reference only—these are not input fields", providers)
+        self.assertNotIn("<input", providers)
+        self.assertNotIn("<select", providers)
+        self.assertNotIn("<button", providers)
         self.assertIn("device-station-credentials.json", settings)
 
     def test_device_file_overrides_config_defaults(self):

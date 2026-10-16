@@ -138,12 +138,13 @@
             <section class="settings-section station-settings" id="station-settings">
               <h2>Local Weather Stations</h2>
               <div class="station-supported-options" aria-label="Supported weather-station connections">
-                <strong>Available connections</strong>
+                <div class="station-supported-heading"><strong>Supported source types</strong><span class="station-config-badge">Config file · read-only</span></div>
+                <p class="settings-help station-reference-note">Reference only—these are not input fields. Add station sources in <code>config.json</code>; enter private cloud keys in <code>device-station-credentials.json</code>.</p>
                 <div class="station-option-list">
-                  <div class="station-option"><span>Ambient Weather</span><small>Local upload · Cloud API</small></div>
-                  <div class="station-option"><span>Weather Underground PWS</span><small>Cloud API</small></div>
+                  <div class="station-option"><strong>Ambient Weather</strong><small>Local upload · Cloud API</small></div>
+                  <div class="station-option"><strong>Weather Underground PWS</strong><small>Cloud API</small></div>
                 </div>
-                <p class="settings-help">To add a source, define it in <code>config.json</code>. Cloud API keys belong in the private, device-only <code>device-station-credentials.json</code> file. Restart Dayglance after changing these files.</p>
+                <p class="settings-help station-restart-note">Restart Dayglance after changing these files.</p>
               </div>
               <div id="station-integrations-list"></div>
               <p class="settings-help">A city can use one configured station for current observations. Forecasts stay with the weather provider. Weathercloud does not currently provide an official API for retrieving station data.</p>

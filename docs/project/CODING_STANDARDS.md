@@ -21,6 +21,7 @@ Dayglance is a small, dependency-light application intended to run on Raspberry 
 - Never put API keys, passwords, or other secrets in `config.json`, which the local web server serves to browsers. Keep any future provider credentials in a separate device-local server-side store with restricted permissions.
 - Preserve attribution and the license/terms required by each data source.
 - Do not call backend or configuration support a finished user-facing feature until its entry point and activation steps are discoverable in the running app or clearly shown in the relevant settings screen.
+- Distinguish editable controls from read-only information visually and semantically; config-file-only options must be explicitly labeled and must not look like text-entry fields or buttons.
 
 ## Verification expected for changes
 

@@ -111,6 +111,17 @@ class StationConfigurationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Only one enabled"):
             server.load_station_configuration()
 
+    def test_supports_station_data_for_more_than_three_cities(self):
+        sources = [
+            {"id": f"station-{index}", "provider": "ambient-weather", "connection": "local-upload",
+             "enabled": True, "sourceIp": f"192.168.1.{60 + index}", "locationId": f"city-{index}"}
+            for index in range(1, 5)
+        ]
+        self.write_config(stationIntegrations=sources)
+        result = server.load_station_configuration()
+        self.assertEqual([source["locationId"] for source in result["integrations"]],
+                         ["city-1", "city-2", "city-3", "city-4"])
+
     def test_valid_ambient_cloud_station_does_not_need_receiver_address_or_secret_in_config(self):
         self.write_config(
             stationReceiver={"bindAddress": "127.0.0.1", "port": 8082, "path": "/upload"},
