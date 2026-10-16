@@ -1,0 +1,52 @@
+{
+  "date": "2026-10-16",
+  "project": "Dayglance",
+  "device": {
+    "hostname": "DevPi",
+    "address": "192.168.1.91",
+    "applicationPath": "/home/mderdouri/dayglance",
+    "url": "http://127.0.0.1:8081/"
+  },
+  "pullRequests": [
+    {"number": 8, "url": "https://github.com/mderdouri/Dayglance/pull/8", "state": "open", "check": "Verify succeeded"},
+    {"number": 9, "url": "https://github.com/mderdouri/Dayglance/pull/9", "state": "open", "head": "b49287fe143412517e9f46ff5e394be8ecbab8aa", "base": "codex/rain-radar-controls", "check": "Local checks passed; GitHub pull-request check not triggered because workflow targets main"}
+  ],
+  "deployment": {
+    "status": "complete",
+    "updatedFiles": {
+      "index.html": "9a529e3b515692fdc0652ca5311a70b492a340923d9832f7e22b3e22379d3383",
+      "app.js": "5bbab992e569bce0b132e3b1413fa4c6c45eb7d374639fef585dbc835a15e215",
+      "styles.css": "a4a29bc47862f2644f2da2384e771ef3322d813862e391bd9349d1e9dd689312",
+      "sw.js": "98878ac1c463a3cab111b037909a711a4b592f81fbb3d99b33ca39d6d8e363d5",
+      "radar.js": "00d781e4f805e49d0a04540bc4d8ac594cbd2d000718fe87be16d6dfaf826c51",
+      "location-order.js": "76884a4457ae339bd081c0d59b9ea21e7ab8368d3429896515caf7a2b8919056",
+      "server.py": "5ce3438615f067c6f366a0c1fd343a95257121accab525cb9a31fa4cd091335a"
+    },
+    "preservedFingerprints": {
+      "config.json": "8bb79fe16b81cba7b8fe3e47712468cac72869106f82393c91a43aa6028fff18",
+      "device-settings.json": "1c0d46704491ba0d67a0bd2129fecca74dd81241325b91e50a46a76bece1402c"
+    },
+    "rollbackDirectory": "/home/mderdouri/dayglance/.rollback/pr8-pr9-20261016",
+    "rollbackDirectoryMode": "0700",
+    "restartedServices": ["dayglance.service", "dayglance-kiosk.service"],
+    "serviceStatus": {
+      "dayglance.service": {"active": true, "NRestarts": 0},
+      "dayglance-kiosk.service": {"active": true, "NRestarts": 0},
+      "devpi-blank-screen.service": {"active": true, "NRestarts": 0}
+    },
+    "http200Paths": ["/", "/index.html", "/app.js", "/styles.css", "/sw.js", "/radar.js", "/location-order.js", "/api/device-settings"],
+    "recoveryNote": "First verification found location-order.js returned 404 due to the server static-file allowlist. Added the MIME/allowlist entry with a regression test, deployed the fix, restarted the service and kiosk, and verified HTTP 200."
+  },
+  "verification": {
+    "javascriptTestsPassed": 23,
+    "pythonTestsPassed": 21,
+    "launcherScenarios": "passed",
+    "shellSyntax": "passed",
+    "jsonConfiguration": "valid",
+    "gitDiffCheck": "passed",
+    "headlessBrowserViewport": "800x480",
+    "touchPathsSimulated": ["touch swipe", "mouse-like drag", "wheel", "keyboard paging", "horizontal touch", "horizontal wheel"],
+    "physicalTouchscreenTested": false,
+    "screensaverWakeRetested": false
+  }
+}
