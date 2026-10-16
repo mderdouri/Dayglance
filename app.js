@@ -5,13 +5,14 @@ const GEOCODE_API = 'https://geocoding-api.open-meteo.com/v1/search';
 const AIR_QUALITY_API = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 const FALLBACK_CONFIG = {defaultLocation:null,locations:[]};
 const hourlyWindow = window.DayglanceHourlyWindow;
-const DEFAULT_PREFERENCES = {returnAfterSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,showBumpers:true,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30};
+const DEFAULT_PREFERENCES = {returnAfterSeconds:60,radarIdleTimeoutSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,showBumpers:true,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30};
 const $ = selector => document.querySelector(selector);
 const setup = $('#setup');
 const dashboard = $('#dashboard');
 const addPage = $('#add-page');
 const details = $('#details');
 const settingsScreen = $('#settings-screen');
+const radarScreen = $('#radar-screen');
 const loading = $('#loading');
 const setupError = $('#setup-error');
 let saved = {userLocations:[],overrides:{},forecasts:{},histories:{},resolved:{},preferences:{}};
@@ -90,6 +91,7 @@ function setLoading(on,message='Loading forecast…'){
 function setStatus(value){text('updated',value)}
 function applyPreferences(){
   $('#setting-return-time').value=String(preferences.returnAfterSeconds);
+  $('#setting-radar-timeout').value=String(preferences.radarIdleTimeoutSeconds);
   $('#setting-temperature').value=preferences.temperatureUnit;
   $('#setting-measurement').value=preferences.measurementSystem;
   $('#setting-clock').value=preferences.clockFormat;
@@ -152,6 +154,7 @@ function refreshAfterResume(){
   const now=Date.now();if(now-lastResumeRefresh<5000)return;lastResumeRefresh=now;
   const area=locations[currentIndex],cached=area&&saved.forecasts[area.id];
   if(area&&settingsScreen.hidden&&(!cached||now-cached.fetchedAt>10*60*1000))loadForecast({showSpinner:false});
+  if(!radarScreen.hidden)window.DayglanceRadar.refresh();
 }
 function configSignature(config){return JSON.stringify([config.defaultLocation,...(config.locations||[])])}
 function normalizeConfigLocation(area,index){
@@ -170,7 +173,8 @@ async function initialize(){
   preferences={...DEFAULT_PREFERENCES,...configPreferences,...saved.preferences};
   delete preferences.scrollbarSize;
   delete saved.preferences.scrollbarSize;
-  if(![0,30,60,90,120].includes(Number(preferences.returnAfterSeconds)))preferences.returnAfterSeconds=DEFAULT_PREFERENCES.returnAfterSeconds;else preferences.returnAfterSeconds=Number(preferences.returnAfterSeconds);
+  if(![0,15,30,60,90,120,300].includes(Number(preferences.returnAfterSeconds)))preferences.returnAfterSeconds=DEFAULT_PREFERENCES.returnAfterSeconds;else preferences.returnAfterSeconds=Number(preferences.returnAfterSeconds);
+  if(![15,30,60,300].includes(Number(preferences.radarIdleTimeoutSeconds)))preferences.radarIdleTimeoutSeconds=DEFAULT_PREFERENCES.radarIdleTimeoutSeconds;else preferences.radarIdleTimeoutSeconds=Number(preferences.radarIdleTimeoutSeconds);
   if(!['fahrenheit','celsius'].includes(preferences.temperatureUnit))preferences.temperatureUnit=DEFAULT_PREFERENCES.temperatureUnit;
   if(!['imperial','metric'].includes(preferences.measurementSystem))preferences.measurementSystem=DEFAULT_PREFERENCES.measurementSystem;
   if(!['system','12','24'].includes(preferences.clockFormat))preferences.clockFormat=DEFAULT_PREFERENCES.clockFormat;
@@ -197,6 +201,7 @@ function rebuildLocations(){
   const primary=configuredLocations.map(area=>saved.overrides[area.id]||area).filter(area=>!hidden.has(area.id));
   locations=[...primary,...(saved.defaultLocation?[saved.defaultLocation]:[]),...saved.userLocations.filter(area=>!hidden.has(area.id))];
   $('#refresh').hidden=locations.length===0;
+  $('#radar-open').hidden=locations.length===0;
   currentIndex=Math.max(0,Math.min(currentIndex,locations.length-1));
   updateAreaPosition();
 }
@@ -493,9 +498,9 @@ function showArea(index,direction='next'){
 function pauseAutoScroll(){clearTimeout(autoScrollTimer);autoScrollTimer=null}
 function scheduleAutoScroll(){
   pauseAutoScroll();
-  if(!preferences.autoScrollLocations||locations.length<2||!setup.hidden||!details.hidden||!settingsScreen.hidden||showingAddPage||document.visibilityState==='hidden')return;
+  if(!preferences.autoScrollLocations||locations.length<2||!setup.hidden||!details.hidden||!settingsScreen.hidden||!radarScreen.hidden||showingAddPage||document.visibilityState==='hidden')return;
   autoScrollTimer=setTimeout(()=>{
-    if(!preferences.autoScrollLocations||locations.length<2||!setup.hidden||!details.hidden||!settingsScreen.hidden||showingAddPage||document.visibilityState==='hidden')return;
+    if(!preferences.autoScrollLocations||locations.length<2||!setup.hidden||!details.hidden||!settingsScreen.hidden||!radarScreen.hidden||showingAddPage||document.visibilityState==='hidden')return;
     const next=currentIndex<locations.length-1?currentIndex+1:0;
     showArea(next,'next');
   },preferences.autoScrollIntervalSeconds*1000);
@@ -531,7 +536,8 @@ function renderSettings(){
 }
 function openSettings(){
   if(!setup.hidden)return;
-  closeDetails();pauseAutoScroll();showingAddPage=false;addPage.hidden=true;settingsScreen.hidden=false;$('#settings-status').textContent='';renderSettings();loadDeviceSettings();
+  if(!radarScreen.hidden)window.DayglanceRadar.close();
+  closeDetails();pauseAutoScroll();showingAddPage=false;addPage.hidden=true;settingsScreen.hidden=false;$('#settings-status').textContent='';renderSettings();loadDeviceSettings();window.DayglanceRadar.refreshProviderStatus();
 }
 function closeSettings(){settingsScreen.hidden=true;if(locations.length){dashboard.hidden=false;showingAddPage=false;scheduleAutoScroll()}else openEditor('initial')}
 function removeLocation(id){
@@ -546,6 +552,7 @@ function removeLocation(id){
 }
 function changePreference(key,value,refreshForecast=false){
   preferences[key]=value;savePreferences();
+  if(key==='radarIdleTimeoutSeconds')window.DayglanceRadar.setIdleTimeout(value);
   if(key==='refreshMinutes')scheduleRefresh();
   if(key==='autoScrollLocations'||key==='autoScrollIntervalSeconds')scheduleAutoScroll();
   if(refreshForecast){save();currentForecast=null;loadForecast()}
@@ -572,6 +579,12 @@ $('#add-location').addEventListener('click',()=>openEditor('add'));
 $('#edit-location').addEventListener('click',()=>openEditor('edit'));
 $('#today-details').addEventListener('click',()=>showDetails(0));
 $('#refresh').addEventListener('click',()=>loadForecast());
+$('#radar-open').addEventListener('click',()=>{
+  const location=locations[currentIndex];
+  if(!location)return;
+  pauseAutoScroll();window.DayglanceRadar.setIdleTimeout(preferences.radarIdleTimeoutSeconds);window.DayglanceRadar.open(location);
+});
+window.addEventListener('dayglance-radar-close',scheduleAutoScroll);
 $('#close-details').addEventListener('click',closeDetails);
 $('#settings-toggle').addEventListener('click',openSettings);
 $('#settings-close').addEventListener('click',closeSettings);
@@ -610,6 +623,7 @@ window.addEventListener('pointercancel',finishSettingsPan,{passive:true});
 $('#settings-edit-default').addEventListener('click',editDefaultLocation);
 $('#settings-add-location').addEventListener('click',()=>openEditor('add',{returnToSettings:true}));
 $('#setting-return-time').addEventListener('change',event=>changePreference('returnAfterSeconds',Number(event.target.value)));
+$('#setting-radar-timeout').addEventListener('change',event=>changePreference('radarIdleTimeoutSeconds',Number(event.target.value)));
 $('#setting-temperature').addEventListener('change',event=>changePreference('temperatureUnit',event.target.value,true));
 $('#setting-measurement').addEventListener('change',event=>changePreference('measurementSystem',event.target.value,true));
 $('#setting-clock').addEventListener('change',event=>changePreference('clockFormat',event.target.value));
@@ -671,10 +685,9 @@ appRoot.addEventListener('keydown',()=>{pauseAutoScroll();setTimeout(scheduleAut
 addPage.addEventListener('pointerdown',refreshAfterResume,{passive:true});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshAfterResume();scheduleAutoScroll()}else pauseAutoScroll()});
 window.addEventListener('pageshow',refreshAfterResume);
-document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(!details.hidden)closeDetails();else if(!setup.hidden)closeEditor();else if(!settingsScreen.hidden)closeSettings()}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(!radarScreen.hidden)window.DayglanceRadar.close();else if(!details.hidden)closeDetails();else if(!setup.hidden)closeEditor();else if(!settingsScreen.hidden)closeSettings()}});
 const regionNames=new Intl.DisplayNames(['en'],{type:'region'});
 const countryCodes='AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'.split(' ');
 countryCodes.map(code=>({code,name:regionNames.of(code)})).sort((a,b)=>a.name.localeCompare(b.name)).forEach(({code,name})=>$('#country-code').add(new Option(name,code)));
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 initialize();
-

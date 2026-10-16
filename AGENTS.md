@@ -12,6 +12,7 @@ These instructions apply to AI agents working in this repository. Follow the use
 ## Product requirements to preserve
 
 - Keep the landscape interface usable at 800×480 and on a touchscreen without a keyboard or mouse.
+- Keep first-run setup focused on choosing the initial location. Put optional settings and controls in Settings or `config.json`; do not add them to first-run setup unless the user explicitly asks.
 - Preserve keyboard access, accessible labels, readable contrast, and useful touch targets.
 - On touchscreens, especially small displays, prefer swiping or panning directly on the content over dedicated scrollbar handles. Keep the content scrollable without relying on a visible scrollbar; use native touch scrolling where possible.
 - For every change to a scrollable view, verify every applicable input path rather than inferring that one kind of scroll proves the others: finger/touch swipe, mouse-like drag (common on touchscreen kiosks), wheel/trackpad, keyboard scrolling, and horizontal swiping for horizontal strips. Confirm the intended axis and direction, movement at start/middle/end, and that taps on controls still work. Check the target 800×480 layout, hidden/decorative scrollbar behavior, and any sticky controls. For timed detail views, verify scrolling and touch activity pause/reset the return timer. Record which input paths were actually tested; do not claim physical-touch testing from browser simulation.

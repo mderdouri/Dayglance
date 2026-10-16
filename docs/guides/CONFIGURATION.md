@@ -34,6 +34,7 @@ Edit or copy `config.json` into the project root before starting Dayglance. Its 
   ],
   "preferences": {
     "returnAfterSeconds": 60,
+    "radarIdleTimeoutSeconds": 60,
     "temperatureUnit": "fahrenheit",
     "measurementSystem": "imperial",
     "clockFormat": "system",
@@ -60,7 +61,8 @@ Each configured location needs a stable, unique `id` and can provide:
 
 Preference values are:
 
-- `returnAfterSeconds`: `0`, `30`, `60`, `90`, or `120`; defaults to `60` seconds, and `0` keeps the hourly view open until closed.
+- `returnAfterSeconds`: `15`, `30`, `60`, `90`, `120`, `300`, or `0`; defaults to `60` seconds. Choose 15 seconds, 30 seconds, 1 minute, 1 minute 30 seconds, 2 minutes, or 5 minutes; `0` keeps the hourly view open until closed.
+- `radarIdleTimeoutSeconds`: `15`, `30`, `60`, or `300`; defaults to `60` seconds (1 minute). The precipitation map closes after this much inactivity; touching, panning, zooming, or using the keyboard resets the timer.
 - `temperatureUnit`: `fahrenheit` or `celsius`.
 - `measurementSystem`: `imperial` or `metric`.
 - `clockFormat`: `system`, `12`, or `24`.
@@ -89,3 +91,7 @@ The service worker keeps the app shell for offline startup. It revalidates those
 ## Settings menu
 
 Use the gear button beside refresh to edit the default location, add or remove additional locations, and adjust forecast and hourly-view preferences. Swipe or drag the hourly cards directly to explore the forecast; optional left and right buttons can move through the same content. Removing a location loaded from `config.json` hides it only on that device; remove it from the file to remove it from every copy. Startup controls are available when the app is running from its local Python server on the Pi and the desktop auto-start entry has been installed. Startup options apply the next time the Dayglance launcher runs; they do not restart an open display or require a forecast-server restart.
+
+The hourly view return timer and precipitation-map idle timeout are both adjustable immediately in Settings and can be preconfigured in `config.json`. The hourly timer defaults to one minute and supports 15 seconds through 5 minutes, or can be set to stay open until closed. The precipitation-map timer defaults to one minute and supports 15 seconds, 30 seconds, 1 minute, or 5 minutes. A local 800×480 settings preview is shown below.
+
+![Dayglance settings at 800×480, showing the hourly view return timer set to one minute](../screenshots/dayglance-hourly-timeout-settings-20261016.png)

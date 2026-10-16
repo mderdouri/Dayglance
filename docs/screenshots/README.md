@@ -22,9 +22,17 @@ All project screenshots are kept in this folder so they are easy to find and do 
 
 ![Settings with location and startup controls](dayglance-settings-location-first-20261015.png)
 
+![Settings showing the hourly view return timer and one-minute default](dayglance-hourly-timeout-settings-20261016.png)
+
 ![Vertically swipeable settings with a pinned close control](settings-touch-scroll.jpg)
 
 ## Air-quality preview
 
 
 ![Air-quality tile preview at 800 by 480](dayglance-air-quality-2026-10-15.png)
+
+## Rain radar
+
+![Rain radar settings with the one-minute idle timeout](dayglance-radar-timeout-settings-20261016.png)
+
+![Dayglance dashboard after deploying radar controls to DevPi](dayglance-radar-ux-devpi-20261015.png)

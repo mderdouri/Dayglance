@@ -27,6 +27,8 @@ Run the checks relevant to the change and include the result in the pull request
 
 ```sh
 node --check app.js
+node --check radar.js
+node --test tests/test-radar.js
 python3 -m unittest discover -s tests -v
 sh -n launch-dayglance.sh install-autostart.sh tests/test-launcher-config.sh
 python3 -m json.tool config.json >/dev/null
@@ -37,6 +39,6 @@ For UI work, also inspect the changed flow in a browser and, when available, on 
 
 ## Enforcement status
 
-The `CI` GitHub Actions workflow runs the syntax, configuration, and launcher checks above for pushes to `main` and pull requests targeting `main`. Its job check is named `CI / Verify`. The workflow is deliberately dependency-light and does not install a formatter or linter; keep the documented style reviewable and consistent, and add a formatter only with a clear benefit and an agreed repository-wide configuration.
+The `CI` GitHub Actions workflow runs the syntax, radar, configuration, and launcher checks above for pushes to `main` and pull requests targeting `main`. Its job check is named `CI / Verify`. The workflow is deliberately dependency-light and does not install a formatter or linter; keep the documented style reviewable and consistent, and add a formatter only with a clear benefit and an agreed repository-wide configuration.
 
 The workflow file is present in this working tree. It becomes an active GitHub check after it is published to the repository. Once a successful run has established the check, configure `main` to require pull requests and the `CI / Verify` check. Keep the required approval count at zero while there is no second independent reviewer; the owner cannot approve their own pull request. See [GOVERNANCE.md](GOVERNANCE.md) for the current remote enforcement status and review-limit recommendation.
