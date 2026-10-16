@@ -258,13 +258,13 @@ async function loadForecast({showSpinner=true}={}){
   catch(error){
     const fallback=forecastInCurrentUnits(cached);
     if(fallback){currentForecast=fallback;render(fallback,area);setStatus('Showing saved forecast · refresh to retry')}
-    else{setStatus(error.message);text('place-name',area.name);dashboard.hidden=false}
+    else{setStatus(error.message);setPlaceHeading(area);dashboard.hidden=false}
   }finally{setLoading(false)}
 }
 function render(data,location){
   const current=data.current,daily=data.daily,hourly=data.hourly;
   const currentKind=weatherType(current.weather_code,Boolean(current.is_day));
-  text('place-name',location.name);text('today-date',new Intl.DateTimeFormat(undefined,{weekday:'long',month:'long',day:'numeric'}).format(new Date(`${daily.time[0]}T12:00:00`)));
+  setPlaceHeading(location);text('today-date',new Intl.DateTimeFormat(undefined,{weekday:'long',month:'long',day:'numeric'}).format(new Date(`${daily.time[0]}T12:00:00`)));
   $('#current-icon').innerHTML=currentKind.icon;text('current-temperature',safeNumber(current.temperature_2m));$('#current-temperature-unit').textContent=temperatureSuffix();text('current-summary',currentKind.label);text('feels-like',`${safeNumber(current.apparent_temperature)}${temperatureSuffix()}`);
   text('sunrise',daily.sunrise?.[0]?localHour(daily.sunrise[0]):'—');text('sunset',daily.sunset?.[0]?localHour(daily.sunset[0]):'—');
   const metric=preferences.measurementSystem==='metric';
@@ -275,6 +275,11 @@ function render(data,location){
   text('air-quality-value',air.value);text('air-quality-pm',air.pm25);
   $('#air-quality-value').title=air.category;$('#air-quality-value').setAttribute('aria-label',air.ariaLabel);
   renderTrend(data,location);renderDays(daily);
+}
+function setPlaceHeading(location){
+  const [city,...details]=String(location.name||'').split(',').map(part=>part.trim());
+  text('place-name',city||location.name||'—');
+  text('place-region',details.join(', ')||[location.postalCode,location.countryCode].filter(Boolean).join(' · '));
 }
 function renderTrend(data,location){
   const holder=$('#trend-chart'),range=preferences.temperatureGraphRange;
@@ -466,7 +471,7 @@ function saveSelectedLocation(){
   if(returnToSettings){setup.hidden=true;dashboard.hidden=true;addPage.hidden=true;settingsScreen.hidden=false;renderSettings();return}
   const nextIndex=locations.findIndex(area=>area.id===selected.id);
   setup.hidden=true;showingAddPage=false;addPage.hidden=true;dashboard.hidden=false;
-  if(nextIndex===currentIndex){currentForecast=null;text('place-name',selected.name);loadForecast().then(scheduleAutoScroll)}
+  if(nextIndex===currentIndex){currentForecast=null;setPlaceHeading(selected);loadForecast().then(scheduleAutoScroll)}
   else if(nextIndex>=0)showArea(nextIndex,nextIndex>=currentIndex?'next':'previous');
 }
 function resolveEditedLocation(){
