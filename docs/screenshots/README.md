@@ -34,6 +34,10 @@ This interface preview uses simulated forecast values; it demonstrates the locat
 
 ![Settings showing the city assignment for a local weather station](dayglance-local-station-settings-20261016.png)
 
+![Settings showing available Ambient Weather and Weather Underground connections](dayglance-station-connections-settings-20261016.png)
+
+This isolated 800×480 Chrome preview uses the current Settings markup and styles; it verifies that cloud/local connection options are discoverable, but is not a physical DevPi touchscreen capture.
+
 ![Vertically swipeable settings with a pinned close control](settings-touch-scroll.jpg)
 
 ## Air-quality preview

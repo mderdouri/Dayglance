@@ -101,13 +101,71 @@ Browser preferences changed in the Settings menu are stored in that browser and 
 
 ## Local weather-station integration
 
-Each saved city may be associated with zero or one local observation source. This association is per browser/device and can be changed in **Settings → Local Weather Stations**. A station does not become an extra carousel location: its live measurements appear on the selected city's dashboard, while the forecast and hourly view continue to use Open-Meteo. Station values are labeled as local observations and automatically stop being used when their observation timestamp is older than `staleAfterSeconds`.
+Each saved city may be associated with zero or one station observation source. **Settings → Local Weather Stations** always lists the supported connection types, even before a source has been configured, and shows any configured feeds with their status; it also lets you associate a source with a saved city. The supported-source panel is informational and read-only; sources are added through `config.json`, while credentials are kept separately in the private device-only credentials file. There is no three-city cap: add an integration entry for every city/station pair, with unique source IDs; provider quotas and the one-source-per-city rule still apply. A station does not become an extra carousel location: its live measurements appear on the selected city's dashboard, while the forecast and hourly view continue to use Open-Meteo. Station values are labeled as observations and automatically stop being used when their observation timestamp is older than `staleAfterSeconds`.
 
-The first adapter is Ambient Weather local upload. Dayglance accepts its native Ambient Weather field names and the Weather Underground-compatible upload format. Configure `stationReceiver` and one or more `stationIntegrations` in the project-root `config.json`. Use reserved private LAN addresses: `bindAddress` must be the Pi's specific address (never `0.0.0.0`), and `sourceIp` must be the station's reserved address. The sample addresses above are examples only. Do not forward the listener port through the router or expose it to the public internet. The receiver accepts only the configured path and registered station source IPs. Incoming samples stay in memory and are cleared when the service restarts; no station history is written to the SD card. The receiver ignores provider credentials and does not log upload URLs or query strings.
+Ambient Weather supports two connections:
+
+- **Local upload:** Dayglance accepts native Ambient Weather fields and the Weather Underground-compatible upload format. Configure `stationReceiver` and `connection: "local-upload"` in `stationIntegrations`. Use reserved private LAN addresses: `bindAddress` must be the Pi's specific address (never `0.0.0.0`), and `sourceIp` must be the station's reserved address. Do not forward the listener port through the router or expose it to the public internet. Samples stay in memory and are cleared when the service restarts; the receiver ignores upload credentials and does not log upload URLs or query strings.
+- **Ambient Weather cloud API:** use `connection: "cloud-api"` and the device MAC as `deviceId`. Store the user API key and application key in the untracked device-local `device-station-credentials.json` file described below. Dayglance queries the official `/v1/devices` latest-reading endpoint once per minute per credential pair. Ambient documents limits of 1 request/second per user API key and 3 requests/second per application key, so this polling interval stays below those limits. See the [Ambient API reference](https://github.com/ambient-weather/api-docs/blob/master/apiary.apib) and [Ambient API key guidance](https://ambientweather.com/faqs/question/view/id/1811/).
+- **Weather Underground PWS cloud API:** use `provider: "weather-underground"`, `connection: "cloud-api"`, and the PWS `stationId`. Put the Weather Company API key in the device-local credentials file. Current API docs describe a 50,000-request/day trial limit and require an authorized API key; paid access limits and charges depend on the user's plan/agreement. Check access and terms before enabling it. See [PWS current observations](https://developer.weather.com/docs/openapi/pws-current-observations-2-0/get-v2-pws-observations-current), [authentication and quotas](https://developer.weather.com/docs/authentication), and [Getting Started/pricing](https://developer.weather.com/docs/getting-started).
+
+Example cloud source in `config.json` (replace the example MAC and IDs):
+
+```json
+{
+  "id": "cloud-backyard",
+  "name": "Backyard cloud station",
+  "provider": "ambient-weather",
+  "connection": "cloud-api",
+  "enabled": true,
+  "deviceId": "00:11:22:33:44:55",
+  "credentialsId": "home-account",
+  "locationId": null,
+  "staleAfterSeconds": 600
+}
+```
+
+Example Weather Underground source:
+
+```json
+{
+  "id": "wu-backyard",
+  "name": "Backyard WU station",
+  "provider": "weather-underground",
+  "connection": "cloud-api",
+  "enabled": true,
+  "stationId": "KDCWASHINGTON123",
+  "credentialsId": "weather-company-account",
+  "locationId": null,
+  "staleAfterSeconds": 600
+}
+```
+
+Create `device-station-credentials.json` beside `server.py` and restrict it to the Dayglance service account (`chmod 600 device-station-credentials.json` on Linux):
+
+```json
+{
+  "ambientWeatherAccounts": {
+    "home-account": {
+      "apiKey": "PASTE_USER_API_KEY_HERE",
+      "applicationKey": "PASTE_APPLICATION_KEY_HERE"
+    }
+  },
+  "weatherUndergroundAccounts": {
+    "weather-company-account": {
+      "apiKey": "PASTE_WEATHER_COMPANY_API_KEY_HERE"
+    }
+  }
+}
+```
+
+This credential file is ignored by Git and is never served to the browser. Keep it on the device only and do not paste keys into chat. Ambient requires both keys; the official API limits requests to 1 per second per user key and 3 per second per application key. The cloud poller requests the latest reading once per minute per credential pair and reuses the response for all configured devices using those keys.
+
+Weathercloud's [official FAQ](https://weathercloud.net/en/faq) says it currently has no API for retrieving station data. Its API is for uploads; use a station's direct local upload to Dayglance when supported rather than scraping the Weathercloud website.
 
 In the station's companion app, look for a custom server/custom upload option and enter the Pi's LAN address, HTTP, port, upload path, and either the Ambient Weather or Weather Underground-compatible protocol. Ambient's official WS-2902 family FAQ documents a custom server form and both protocol formats, but the option and fields vary by station revision and firmware. Check the [Ambient WS-2902 FAQ](https://ambientweather.com/faqs/question/tags/tag/WS-2902A/) and your exact console manual; the listing for the device used during Dayglance development appears to be in this family, but its installed revision/firmware has not been verified. Reserve the station address in the router before enabling the listener. Once `config.json` is updated, restart the Dayglance service. Assign that station to its city under Settings; changing this association takes effect immediately and is saved in the browser on that device.
 
-Cloud-connected station services are an architectural extension point but are not yet supported. They will use the same one-station-per-city rule, with credentials held in a restricted server-side device file rather than `config.json` or browser storage.
+Both cloud adapters use the same one-station-per-city rule, with credentials held in a restricted server-side device file rather than `config.json` or browser storage.
 
 See [Local weather stations](LOCAL_STATIONS.md) for the complete setup, network safety, data mapping, and troubleshooting guide.
 
