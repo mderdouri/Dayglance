@@ -5,7 +5,7 @@ const GEOCODE_API = 'https://geocoding-api.open-meteo.com/v1/search';
 const AIR_QUALITY_API = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 const FALLBACK_CONFIG = {defaultLocation:null,locations:[]};
 const hourlyWindow = window.DayglanceHourlyWindow;
-const DEFAULT_PREFERENCES = {returnAfterSeconds:60,radarIdleTimeoutSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,showBumpers:true,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30};
+const DEFAULT_PREFERENCES = {returnAfterSeconds:60,radarIdleTimeoutSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,showBumpers:true,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30,alertsEnabled:true,alertMinimumSeverity:'moderate'};
 const $ = selector => document.querySelector(selector);
 const setup = $('#setup');
 const dashboard = $('#dashboard');
@@ -13,6 +13,7 @@ const addPage = $('#add-page');
 const details = $('#details');
 const settingsScreen = $('#settings-screen');
 const radarScreen = $('#radar-screen');
+const alertsScreen = $('#alerts-screen');
 const loading = $('#loading');
 const setupError = $('#setup-error');
 let saved = {userLocations:[],overrides:{},forecasts:{},histories:{},resolved:{},preferences:{},stationAssociations:{}};
@@ -43,6 +44,11 @@ let refreshTimer;
 let stationRefreshTimer;
 let touchStart = null;
 let lastResumeRefresh = 0;
+let weatherAlertsByLocation = {};
+let alertRefreshTimer;
+let alertRequestSequence = 0;
+let settingsHomeScrollTop = 0;
+let settingsView = 'home';
 
 function readSaved(){try{return JSON.parse(localStorage.getItem(STORE_KEY)||'{}')}catch{return {}}}
 function save(){const {forecasts,histories,...persistent}=saved;const serialized=JSON.stringify(persistent);if(localStorage.getItem(STORE_KEY)!==serialized)localStorage.setItem(STORE_KEY,serialized)}
@@ -107,6 +113,8 @@ function applyPreferences(){
   $('#setting-auto-scroll-interval').value=String(preferences.autoScrollIntervalSeconds);
   $('#setting-auto-scroll-interval').disabled=!preferences.autoScrollLocations;
   $('#setting-bumpers').checked=preferences.showBumpers;
+  $('#setting-alerts-enabled').checked=preferences.alertsEnabled;
+  $('#setting-alert-severity').value=preferences.alertMinimumSeverity;
   $('#hours-previous').hidden=$('#hours-next').hidden=!preferences.showBumpers;
   const summary=$('#current-temperature-unit');if(summary)summary.textContent=temperatureSuffix();
 }
@@ -160,6 +168,7 @@ function refreshAfterResume(){
   const now=Date.now();if(now-lastResumeRefresh<5000)return;lastResumeRefresh=now;
   const area=locations[currentIndex],cached=area&&saved.forecasts[area.id];
   if(area&&settingsScreen.hidden&&(!cached||now-cached.fetchedAt>10*60*1000))loadForecast({showSpinner:false});
+  if(area&&preferences.alertsEnabled)refreshWeatherAlerts(area);
   if(!radarScreen.hidden)window.DayglanceRadar.refresh();
 }
 function configSignature(config){return JSON.stringify([config.defaultLocation,...(config.locations||[])])}
@@ -193,13 +202,15 @@ async function initialize(){
   preferences.autoScrollLocations=preferences.autoScrollLocations===true;
   if(![30,60,300,900].includes(Number(preferences.autoScrollIntervalSeconds)))preferences.autoScrollIntervalSeconds=DEFAULT_PREFERENCES.autoScrollIntervalSeconds;else preferences.autoScrollIntervalSeconds=Number(preferences.autoScrollIntervalSeconds);
   preferences.showBumpers=preferences.showBumpers!==false;
+  if(typeof preferences.alertsEnabled!=='boolean')preferences.alertsEnabled=DEFAULT_PREFERENCES.alertsEnabled;
+  if(!['minor','moderate','severe','extreme'].includes(preferences.alertMinimumSeverity))preferences.alertMinimumSeverity=DEFAULT_PREFERENCES.alertMinimumSeverity;
   // Preserve a location the owner explicitly edited in the earlier preset-based version.
   try{const previous=JSON.parse(stored.configSignature||'[]')[0];if(!config.defaultLocation&&!saved.defaultLocation&&previous?.id&&saved.overrides[previous.id])saved.defaultLocation={...saved.overrides[previous.id],source:'user'}}catch{}
   if(stored.configSignature&&stored.configSignature!==signature){
     for(const area of configuredLocations){delete saved.overrides[area.id];delete saved.resolved[area.id];delete saved.forecasts[area.id];delete saved.histories[area.id]}
   }
   save();rebuildLocations();currentIndex=0;showingAddPage=false;
-  applyPreferences();await loadDeviceSettings();scheduleRefresh();
+  applyPreferences();await loadDeviceSettings();scheduleRefresh();scheduleAlertRefresh();
   if(stationIntegrations.length)await refreshStationData();updateStationRefreshTimer()
   if(!locations.length){setStatus('Choose your location');openEditor('initial');return}
   dashboard.hidden=false;setup.hidden=true;addPage.hidden=true;
@@ -304,6 +315,105 @@ function updateStationRefreshTimer(){
   if(stationIntegrations.length){if(!stationRefreshTimer)stationRefreshTimer=setInterval(refreshStationData,30000)}
   else if(stationRefreshTimer){clearInterval(stationRefreshTimer);stationRefreshTimer=null}
 }
+function alertSeverityRank(severity){return ({unknown:0,minor:1,moderate:2,severe:3,extreme:4})[String(severity||'unknown').toLowerCase()]??0}
+function filteredWeatherAlerts(features){
+  const threshold={minor:1,moderate:2,severe:3,extreme:4}[preferences.alertMinimumSeverity]||2;
+  return features.filter(feature=>alertSeverityRank(feature.properties?.severity)>=threshold||!feature.properties?.severity||String(feature.properties.severity).toLowerCase()==='unknown')
+    .sort((left,right)=>alertSeverityRank(right.properties?.severity)-alertSeverityRank(left.properties?.severity));
+}
+function setAlertServiceStatus(state,message){
+  const dot=$('#alert-service-dot');if(dot)dot.className=`status-dot status-dot-${state}`;
+  text('alert-service-status',message);
+  updateConnectionSummary();
+}
+function renderWeatherAlertBanner(location,record){
+  if(locations[currentIndex]?.id!==location.id)return;
+  const banner=$('#alerts-banner');
+  if(!preferences.alertsEnabled||!record?.features){banner.hidden=true;dashboard.classList.remove('has-alert-banner');return}
+  const alerts=filteredWeatherAlerts(record.features);
+  weatherAlertsByLocation[location.id]={...record,visibleAlerts:alerts};
+  banner.hidden=alerts.length===0;
+  dashboard.classList.toggle('has-alert-banner',alerts.length>0);
+  if(!alerts.length)return;
+  const properties=alerts[0].properties||{};
+  text('alerts-banner-title',properties.event||properties.headline||'Weather alert');
+  text('alerts-banner-count',alerts.length===1?'Active for this location':`${alerts.length} active alerts for this location`);
+  const severityDot=banner.querySelector('.status-dot');
+  if(severityDot)severityDot.className=`status-dot status-dot-${['severe','extreme'].includes(String(properties.severity||'').toLowerCase())?'red':'amber'}`;
+  banner.classList.toggle('alerts-banner-extreme',String(properties.severity).toLowerCase()==='extreme');
+  banner.classList.toggle('alerts-banner-severe',String(properties.severity).toLowerCase()==='severe');
+  banner.classList.toggle('alerts-banner-moderate',!['extreme','severe'].includes(String(properties.severity).toLowerCase()));
+  banner.setAttribute('aria-label',`${properties.severity||'Weather'} ${properties.event||'alert'} for ${location.name}. Open alert details.`);
+}
+function scheduleAlertRefresh(){
+  clearInterval(alertRefreshTimer);
+  alertRefreshTimer=setInterval(()=>{
+    if(!locations.length||!preferences.alertsEnabled||!setup.hidden||showingAddPage)return;
+    const location=locations[currentIndex];if(location)refreshWeatherAlerts(location,{force:true});
+  },5*60*1000);
+}
+async function refreshWeatherAlerts(location,{force=false}={}){
+  if(!preferences.alertsEnabled){setAlertServiceStatus('neutral','Alerts disabled in Settings.');renderWeatherAlertBanner(location,null);return}
+  if(String(location.countryCode||'').toUpperCase()!=='US'){
+    setAlertServiceStatus('neutral','National Weather Service alerts are available for U.S. locations.');renderWeatherAlertBanner(location,null);return;
+  }
+  if(!Number.isFinite(location.latitude)||!Number.isFinite(location.longitude)){
+    setAlertServiceStatus('amber','Waiting for location coordinates.');return;
+  }
+  const cached=weatherAlertsByLocation[location.id];
+  if(cached&&!force&&Date.now()-cached.fetchedAt<5*60*1000){
+    renderWeatherAlertBanner(location,cached);
+    const count=filteredWeatherAlerts(cached.features).length;
+    setAlertServiceStatus(cached.stale?'amber':'green',cached.stale?'Alert feed delayed · showing the last successful check':`${count?`${count} active alert${count===1?'':'s'}`:'No active alerts'} · checked ${formatAlertTime(cached.checkedAt)}`);
+    return;
+  }
+  if(cached&&locations[currentIndex]?.id===location.id)setAlertServiceStatus('amber','Checking the latest National Weather Service alerts…');
+  const params=new URLSearchParams({latitude:String(location.latitude),longitude:String(location.longitude)});
+  try{
+    const response=await fetch(`./api/weather-alerts?${params}`,{cache:'no-store'});
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.error||'The alert feed is unavailable.');
+    const record={features:Array.isArray(data.features)?data.features:[],checkedAt:data.checkedAt||null,stale:data.stale===true,error:data.error||'',fetchedAt:Date.parse(data.checkedAt)||Date.now()};
+    weatherAlertsByLocation[location.id]=record;
+    if(locations[currentIndex]?.id===location.id){
+      renderWeatherAlertBanner(location,record);
+      const count=filteredWeatherAlerts(record.features).length;
+      setAlertServiceStatus(record.stale?(record.checkedAt?'amber':'red'):'green',record.stale?(record.checkedAt?`Alert feed delayed · last checked ${formatAlertTime(record.checkedAt)}`:record.error||'Alert feed unavailable'):`${count?`${count} active alert${count===1?'':'s'}`:'No active alerts'} · checked ${formatAlertTime(record.checkedAt)}`);
+      updateConnectionSummary();
+    }
+  }catch(error){
+    if(cached){cached.stale=true;renderWeatherAlertBanner(location,cached)}
+    if(locations[currentIndex]?.id===location.id){
+      setAlertServiceStatus(cached?'amber':'red',cached?'Alert feed unavailable · showing the last successful check':error.message||'Alert feed unavailable.');
+      updateConnectionSummary();
+    }
+  }
+}
+function formatAlertTime(value){
+  if(!value)return 'unknown time';
+  const date=new Date(value);return Number.isNaN(date.getTime())?'unknown time':new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(date);
+}
+function openWeatherAlerts(){
+  const location=locations[currentIndex],record=location&&weatherAlertsByLocation[location.id];if(!location||!record)return;
+  const holder=$('#alerts-list');holder.replaceChildren();
+  text('alerts-location',location.name);
+  const alerts=filteredWeatherAlerts(record.features);
+  if(!alerts.length){const empty=document.createElement('p');empty.className='settings-help';empty.textContent='No active alerts match the selected severity.';holder.append(empty)}
+  for(const alert of alerts){
+    const properties=alert.properties||{},article=document.createElement('article'),heading=document.createElement('header'),title=document.createElement('h2'),severity=document.createElement('span');
+    const severityName=['minor','moderate','severe','extreme'].includes(String(properties.severity||'').toLowerCase())?String(properties.severity).toLowerCase():'unknown';
+    article.className=`alert-entry alert-severity-${severityName}`;
+    title.textContent=properties.event||'Weather alert';severity.className='alert-severity-label';severity.textContent=properties.severity||'Severity not provided';heading.append(title,severity);article.append(heading);
+    for(const [label,value] of [['',properties.headline],['Area',properties.areaDesc],['Urgency',properties.urgency],['Effective',properties.effective||properties.onset],['Expires',properties.expires||properties.ends],['Details',properties.description],['Instructions',properties.instruction]]){
+      if(typeof value!=='string'||!value.trim())continue;
+      const row=document.createElement('div');row.className='alert-detail-row';
+      if(label){const caption=document.createElement('strong');caption.textContent=label;row.append(caption)}
+      const copy=document.createElement('p');copy.textContent=label==='Effective'||label==='Expires'?`${value} · ${formatAlertTime(value)}`:value;row.append(copy);article.append(row);
+    }
+    holder.append(article);
+  }
+  alertsScreen.hidden=false;alertsScreen.focus({preventScroll:true});pauseAutoScroll();
+}
 function render(data,location){
   const current=data.current,daily=data.daily,hourly=data.hourly;
   const currentKind=weatherType(current.weather_code,Boolean(current.is_day));
@@ -331,7 +441,7 @@ function render(data,location){
   const air=window.DayglanceAirQuality.formatAirQuality(data.airQuality);
   text('air-quality-value',air.value);text('air-quality-pm',air.pm25);
   $('#air-quality-value').title=air.category;$('#air-quality-value').setAttribute('aria-label',air.ariaLabel);
-  renderTrend(data,location);renderDays(daily);
+  renderTrend(data,location);renderDays(daily);refreshWeatherAlerts(location);
 }
 function setPlaceHeading(location){
   const [city,...details]=String(location.name||'').split(',').map(part=>part.trim());
@@ -609,8 +719,10 @@ function renderStationSettings(){
     const sample=stationSamples[source.id];
     const age=sample?.available?Number(sample.ageSeconds||0)+Math.max(0,Math.floor((Date.now()-sample.clientReceivedAt)/1000)):null;
     const fresh=sample?.fresh&&age<=Number(sample.staleAfterSeconds||600);
-    const status=document.createElement('small');status.textContent=stationReceiverStatus.startsWith('error:')&&source.connection==='local-upload'?`Receiver error · ${stationReceiverStatus.slice(7)}`:stationReceiverStatus==='unreachable'?'Unable to read station receiver status':fresh?`Receiving data · ${age<60?'just now':`${Math.floor(age/60)} min ago`}`:sample?.available?'Last reading is stale':sample?.status||'Waiting for first reading';
-    label.append(name,connection,status);
+    const failure=(stationReceiverStatus==='unreachable'||stationReceiverStatus.startsWith('error:'))&&source.connection==='local-upload'||/unavailable|rejected|failed|not found|invalid/i.test(sample?.status||'');
+    const health=failure?'red':fresh?'green':'amber';
+    const status=document.createElement('small');status.className='station-health-copy';status.textContent=stationReceiverStatus.startsWith('error:')&&source.connection==='local-upload'?`Receiver error · ${stationReceiverStatus.slice(7)}`:stationReceiverStatus==='unreachable'&&source.connection==='local-upload'?'Receiver status unavailable':fresh?`Connected · ${age<60?'just now':`${Math.floor(age/60)} min ago`}`:sample?.available?'Last reading is stale':sample?.status||'Waiting for first reading';
+    const healthRow=document.createElement('span');healthRow.className='station-health-row';const dot=document.createElement('span');dot.className=`status-dot status-dot-${health}`;dot.setAttribute('aria-hidden','true');healthRow.append(dot,status);label.append(name,connection,healthRow);
     const select=document.createElement('select');select.setAttribute('aria-label',`City for ${source.name||'local weather station'}`);
     const unassigned=document.createElement('option');unassigned.value='';unassigned.textContent='Not assigned to a city';select.append(unassigned);
     const assigned=saved.stationAssociations[source.id]||'';
@@ -625,6 +737,7 @@ function renderStationSettings(){
     if(source.managed){const edit=document.createElement('button');edit.type='button';edit.className='small-action';edit.textContent='Edit';edit.addEventListener('click',()=>editManagedStation(source));const remove=document.createElement('button');remove.type='button';remove.className='small-action remove-location';remove.textContent='Remove';remove.addEventListener('click',()=>removeManagedStation(source.id));controls.append(edit,remove)}else{const configLabel=document.createElement('small');configLabel.className='station-config-label';configLabel.textContent='From config.json';controls.append(configLabel)}
     row.append(label,controls);holder.append(row);
   }
+  updateConnectionSummary();
 }
 function renderStationProfiles(){
   const holder=$('#station-profiles-list');if(!holder)return;holder.replaceChildren();
@@ -650,12 +763,59 @@ function removeManagedStation(id){const source=stationIntegrations.find(item=>it
 async function saveStationProfile(event){event.preventDefault();const provider=$('#station-profile-provider').value,data={provider,id:$('#station-profile-id').value.trim(),apiKey:$('#station-profile-api-key').value.trim()};if(provider==='ambient-weather')data.applicationKey=$('#station-profile-app-key').value.trim();const button=$('#station-profile-form button[type="submit"]');button.disabled=true;try{const response=await fetch('./api/station-credentials',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const result=await response.json();if(!response.ok)throw new Error(result.error||'Could not save provider keys.');stationProfiles=result.profiles;$('#station-profile-api-key').value='';$('#station-profile-app-key').value='';$('#settings-status').textContent='Provider keys saved privately on this Pi. They are not displayed or sent to the browser again.';renderStationSettings()}catch(error){$('#settings-status').textContent=error.message}finally{button.disabled=false}}
 async function removeStationProfile(profile){if(stationIntegrations.some(item=>item.provider===profile.provider&&item.credentialsId===profile.id)){text('settings-status','Remove or reassign stations that use this profile first.');return}if(!window.confirm(`Remove the saved ${profile.provider==='ambient-weather'?'Ambient Weather':'Weather Underground'} keys for “${profile.id}”?`))return;try{const response=await fetch(`./api/station-credentials/${encodeURIComponent(profile.provider)}/${encodeURIComponent(profile.id)}`,{method:'DELETE'});const data=await response.json();if(!response.ok)throw new Error(data.error||'Could not remove profile.');stationProfiles=data.profiles;renderStationSettings();text('settings-status','Provider key profile removed from this Pi.')}catch(error){text('settings-status',error.message)}}
 async function submitManagedStation(event){event.preventDefault();const provider=$('#station-source-provider').value,id=stationEditingId||`cloud-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`,source={id,name:$('#station-source-name').value.trim(),provider,connection:'cloud-api',credentialsId:$('#station-source-profile').value,locationId:$('#station-source-city').value,staleAfterSeconds:600};if(provider==='ambient-weather')source.deviceId=$('#station-device-id').value.trim();else source.stationId=$('#station-pws-id').value.trim();const current=stationIntegrations.filter(item=>item.managed&&item.id!==stationEditingId).map(item=>({id:item.id,name:item.name,provider:item.provider,connection:'cloud-api',credentialsId:item.credentialsId,deviceId:item.deviceId,stationId:item.stationId,locationId:item.locationId,staleAfterSeconds:item.staleAfterSeconds||600}));current.push(source);const status=$('#settings-status');try{const response=await fetch('./api/station-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({integrations:current})});const data=await response.json();if(!response.ok)throw new Error(data.error||'Could not save station.');stationIntegrations=data.integrations;stationProfiles=data.profiles;saved.stationAssociations=Object.fromEntries(stationIntegrations.map(item=>[item.id,item.managed?(item.locationId||''):(saved.stationAssociations[item.id]||item.locationId||'')]));save();clearStationSourceForm();renderStationSettings();updateStationRefreshTimer();await refreshStationData();status.textContent='Station saved. Cloud polling updates within one minute.'}catch(error){status.textContent=error.message}}
+function updateConnectionSummary(){
+  const dot=$('#connection-summary-dot'),label=$('#connection-summary');if(!dot||!label)return;
+  const states=stationIntegrations.map(source=>{
+    const sample=stationSamples[source.id],age=sample?.available?Number(sample.ageSeconds||0)+Math.max(0,Math.floor((Date.now()-(sample.clientReceivedAt||Date.now()))/1000)):null;
+    if((source.connection==='local-upload'&&(stationReceiverStatus==='unreachable'||stationReceiverStatus.startsWith('error:')))||/unavailable|rejected|failed|not found|invalid/i.test(sample?.status||''))return 'red';
+    return sample?.fresh&&age<=Number(sample.staleAfterSeconds||600)?'green':'amber';
+  });
+  const alertDot=$('#alert-service-dot');
+  const alertState=alertDot?.classList.contains('status-dot-red')?'red':alertDot?.classList.contains('status-dot-green')?'green':alertDot?.classList.contains('status-dot-amber')?'amber':'neutral';
+  states.push(alertState);
+  const configuredParts=[];
+  for(const provider of ['rainviewer','rainbow']){
+    const providerDot=$(`#${provider}-health-dot`);
+    if(!providerDot||providerDot.classList.contains('status-dot-neutral'))continue;
+    const providerState=providerDot.classList.contains('status-dot-red')?'red':providerDot.classList.contains('status-dot-green')?'green':'amber';
+    states.push(providerState);
+    configuredParts.push(`${provider==='rainviewer'?'RainViewer':'Rainbow'} ${providerState==='green'?'connected':providerState==='amber'?'recovering':'offline'}`);
+  }
+  const state=states.includes('red')?'red':states.includes('amber')?'amber':states.includes('green')?'green':'neutral';
+  dot.className=`status-dot status-dot-${state}`;
+  const alertText=$('#alert-service-status')?.textContent||'';
+  if(stationIntegrations.length)configuredParts.push(`${stationIntegrations.length} weather station${stationIntegrations.length===1?'':'s'}`);
+  if(alertText&&alertState!=='neutral')configuredParts.push(alertText.split(' · ')[0]);
+  label.textContent=configuredParts.length?`${configuredParts.join(' · ')} · see details`:'Weather stations, radar services, and severe weather alerts';
+}
+function initializeSettingsNavigation(){
+  const card=$('.settings-card'),grid=card.querySelector('.settings-grid'),note=card.querySelector('.settings-config-note');
+  const home=document.createElement('div'),services=document.createElement('div'),homeGrid=document.createElement('div'),servicesGrid=document.createElement('div'),servicesNote=document.createElement('p');
+  home.id='settings-home-view';services.id='settings-connections-view';services.hidden=true;homeGrid.className=servicesGrid.className='settings-grid';
+  servicesNote.className='settings-help settings-config-note';servicesNote.textContent='Manage local and cloud stations, radar accounts, and severe weather alerts here. Provider credentials remain on this device and are never stored in config.json.';
+  for(const section of [...grid.children]){
+    if(section.id==='station-settings'||section.classList.contains('radar-settings')||section.classList.contains('alerts-settings'))servicesGrid.append(section);
+    else homeGrid.append(section);
+  }
+  home.append(note,homeGrid);services.append(servicesNote,servicesGrid);grid.replaceWith(home,services);
+  $('#settings-open-connections').addEventListener('click',()=>showSettingsView('connections'));
+  $('#settings-back').addEventListener('click',()=>showSettingsView('home'));
+}
+function showSettingsView(view){
+  const home=$('#settings-home-view'),services=$('#settings-connections-view');
+  if(view==='connections'){
+    settingsHomeScrollTop=settingsScreen.scrollTop;home.hidden=true;services.hidden=false;settingsView='connections';text('settings-title','Connections & Alerts');$('#settings-back').hidden=false;settingsScreen.scrollTop=0;renderStationSettings();updateConnectionSummary();window.DayglanceRadar.refreshProviderStatus();
+  }else{
+    services.hidden=true;home.hidden=false;settingsView='home';text('settings-title','Settings');$('#settings-back').hidden=true;settingsScreen.scrollTop=settingsHomeScrollTop;
+  }
+}
 function openSettings(){
   if(!setup.hidden)return;
   if(!radarScreen.hidden)window.DayglanceRadar.close();
-  closeDetails();pauseAutoScroll();showingAddPage=false;addPage.hidden=true;settingsScreen.hidden=false;$('#settings-status').textContent='';renderSettings();loadDeviceSettings();window.DayglanceRadar.refreshProviderStatus();
+  if(!alertsScreen.hidden)alertsScreen.hidden=true;
+  closeDetails();pauseAutoScroll();showingAddPage=false;addPage.hidden=true;settingsScreen.hidden=false;$('#settings-status').textContent='';showSettingsView('home');renderSettings();loadDeviceSettings();window.DayglanceRadar.refreshProviderStatus();
 }
-function closeSettings(){settingsScreen.hidden=true;if(locations.length){dashboard.hidden=false;showingAddPage=false;scheduleAutoScroll()}else openEditor('initial')}
+function closeSettings(){settingsScreen.hidden=true;showSettingsView('home');if(locations.length){dashboard.hidden=false;showingAddPage=false;scheduleAutoScroll()}else openEditor('initial')}
 function removeLocation(id){
   const area=locations.find(item=>item.id===id);if(!area||locations[0]?.id===id)return;
   const currentId=locations[currentIndex]?.id;
@@ -675,8 +835,10 @@ function changePreference(key,value,refreshForecast=false){
   if(key==='radarIdleTimeoutSeconds')window.DayglanceRadar.setIdleTimeout(value);
   if(key==='refreshMinutes')scheduleRefresh();
   if(key==='autoScrollLocations'||key==='autoScrollIntervalSeconds')scheduleAutoScroll();
+  if(key==='alertsEnabled')scheduleAlertRefresh();
   if(refreshForecast){save();currentForecast=null;loadForecast()}
   else if(currentForecast&&locations[currentIndex])render(currentForecast,locations[currentIndex]);
+  if((key==='alertsEnabled'||key==='alertMinimumSeverity')&&locations[currentIndex])refreshWeatherAlerts(locations[currentIndex]);
   $('#settings-status').textContent='Saved on this device. Changes apply immediately.';
 }
 function changeGraphRange(value){
@@ -704,6 +866,8 @@ $('#radar-open').addEventListener('click',()=>{
   if(!location)return;
   pauseAutoScroll();window.DayglanceRadar.setIdleTimeout(preferences.radarIdleTimeoutSeconds);window.DayglanceRadar.open(location);
 });
+$('#alerts-banner').addEventListener('click',openWeatherAlerts);
+$('#alerts-close').addEventListener('click',()=>{alertsScreen.hidden=true;scheduleAutoScroll()});
 window.addEventListener('dayglance-radar-close',scheduleAutoScroll);
 $('#close-details').addEventListener('click',closeDetails);
 $('#settings-toggle').addEventListener('click',openSettings);
@@ -765,6 +929,8 @@ $('#setting-graph-range').addEventListener('change',event=>changeGraphRange(even
 $('#setting-auto-scroll').addEventListener('change',event=>changePreference('autoScrollLocations',event.target.checked));
 $('#setting-auto-scroll-interval').addEventListener('change',event=>changePreference('autoScrollIntervalSeconds',Number(event.target.value)));
 $('#setting-bumpers').addEventListener('change',event=>changePreference('showBumpers',event.target.checked));
+$('#setting-alerts-enabled').addEventListener('change',event=>changePreference('alertsEnabled',event.target.checked));
+$('#setting-alert-severity').addEventListener('change',event=>changePreference('alertMinimumSeverity',event.target.value));
 $('#setting-auto-start').addEventListener('click',()=>saveDeviceSettings(!deviceSettings.autoStart));
 $('#setting-kiosk').addEventListener('change',()=>saveDeviceSettings(deviceSettings.autoStart));
 $('#fullscreen-now').addEventListener('click',toggleFullscreen);
@@ -817,10 +983,12 @@ appRoot.addEventListener('wheel',()=>{pauseAutoScroll();setTimeout(scheduleAutoS
 appRoot.addEventListener('keydown',()=>{pauseAutoScroll();setTimeout(scheduleAutoScroll,500)});
 addPage.addEventListener('pointerdown',refreshAfterResume,{passive:true});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshAfterResume();scheduleAutoScroll()}else pauseAutoScroll()});
+document.addEventListener('dayglance-provider-status',updateConnectionSummary);
 window.addEventListener('pageshow',refreshAfterResume);
-document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(!radarScreen.hidden)window.DayglanceRadar.close();else if(!details.hidden)closeDetails();else if(!setup.hidden)closeEditor();else if(!settingsScreen.hidden)closeSettings()}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(!alertsScreen.hidden){alertsScreen.hidden=true;scheduleAutoScroll()}else if(!radarScreen.hidden)window.DayglanceRadar.close();else if(!details.hidden)closeDetails();else if(!setup.hidden)closeEditor();else if(!settingsScreen.hidden){if(settingsView==='connections')showSettingsView('home');else closeSettings()}}});
 const regionNames=new Intl.DisplayNames(['en'],{type:'region'});
 const countryCodes='AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'.split(' ');
 countryCodes.map(code=>({code,name:regionNames.of(code)})).sort((a,b)=>a.name.localeCompare(b.name)).forEach(({code,name})=>$('#country-code').add(new Option(name,code)));
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+initializeSettingsNavigation();
 initialize();

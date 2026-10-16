@@ -21,7 +21,9 @@
       "temperatureGraphRange": {"meaning": "Temperature graph period: day shows the next 24 hours, week shows 7 forecast days, forecast16 shows up to 16 forecast days, and history30 shows the previous 30 days ending today.", "validValues": ["day", "week", "forecast16", "history30"], "examples": {"day": "Next 24 hours", "week": "7-day forecast", "forecast16": "16-day outlook", "history30": "Past 30 days of historical weather, not a forecast"}},
       "autoScrollLocations": {"meaning": "Automatically advance through saved locations when more than one exists; the cycle loops between locations and does not open the add-location page.", "validValues": [true, false]},
       "autoScrollIntervalSeconds": {"meaning": "Time to show each location before smoothly advancing. This timer is only used when autoScrollLocations is true.", "validValues": [30, 60, 300, 900], "examples": {"30": "30 seconds", "60": "1 minute", "300": "5 minutes", "900": "15 minutes"}},
-      "showBumpers": {"meaning": "Show optional previous/next buttons below the hourly cards. The cards remain swipeable when false.", "validValues": [true, false]}
+      "showBumpers": {"meaning": "Show optional previous/next buttons below the hourly cards. The cards remain swipeable when false.", "validValues": [true, false]},
+      "alertsEnabled": {"meaning": "Show active National Weather Service alerts for the currently displayed U.S. location. This is an on-screen supplement, not an emergency alert system.", "validValues": [true, false], "default": true},
+      "alertMinimumSeverity": {"meaning": "Minimum NWS alert severity to show. Unrated alerts are always included so missing severity metadata does not hide a potentially important alert.", "validValues": ["minor", "moderate", "severe", "extreme"], "default": "moderate", "examples": {"minor": "Show all rated alerts", "moderate": "Hide minor alerts", "severe": "Show severe and extreme alerts", "extreme": "Show only extreme alerts"}}
     },
     "startup": {
       "autoStart": "True starts Dayglance at desktop login; enabling it in local Pi Settings installs the login hook automatically. For JSON-only setup, run install-autostart.sh once. False leaves it off.",
@@ -32,6 +34,11 @@
       "setup": "Create a Rainbow developer account, then enter its API key in Settings > Radar & Provider Account on the Pi's local screen.",
       "paidUsage": "Pay-as-you-go is disabled by default. Enable it explicitly in the local settings UI after checking the Rainbow account dashboard. The local free-allowance stop only counts this Dayglance server.",
       "documentation": "See RADAR.md for current free allowances, provider usage tracking, and pay-as-you-go rates."
+    },
+    "weatherAlerts": {
+      "meaning": "Free, active National Weather Service point alerts for U.S. locations. The dashboard checks only the currently displayed city every five minutes and caches the result in memory. No API key is required. The colored status indicator reports feed connectivity, not alert severity.",
+      "settings": "Enable or disable alerts and set the minimum severity in Settings > Connections & Alerts > Severe Weather Alerts.",
+      "limits": "Alerts for locations outside the United States are not currently supported. Dayglance uses a five-minute pull interval and is not a push notification or emergency warning service. Keep official phone/NOAA Weather Radio alerts enabled."
     },
     "stationIntegrations": {
       "meaning": "Each saved city may use at most one optional current-observation source. Integrations are separate from the forecast provider. Supported connections are Ambient Weather local-upload/cloud-api and Weather Underground cloud-api. Settings assigns each configured source to one saved city.",
@@ -61,7 +68,9 @@
     "temperatureGraphRange": "day",
     "autoScrollLocations": false,
     "autoScrollIntervalSeconds": 30,
-    "showBumpers": true
+    "showBumpers": true,
+    "alertsEnabled": true,
+    "alertMinimumSeverity": "moderate"
   },
   "startup": {
     "autoStart": false,

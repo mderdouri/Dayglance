@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
+import math
 import os
 import shlex
 import sys
@@ -47,6 +48,8 @@ FILES = {
 RAINBOW_BASE = "https://api.rainbow.ai"
 RAINVIEWER_METADATA = "https://api.rainviewer.com/public/weather-maps.json"
 RAINBOW_MONTHLY_ALLOWANCES = {"tiles": 30000, "nowcast": 5000}
+NWS_ALERTS_URL = "https://api.weather.gov/alerts/active"
+NWS_ALERTS_CACHE_SECONDS = 300
 USAGE_FLUSH_SECONDS = 3600
 _usage_lock = threading.Lock()
 _usage_state: dict[str, object] = {"month": "", "tiles": 0, "nowcast": 0, "allowPaidUsage": False}
@@ -57,6 +60,89 @@ _station_config: dict[str, object] = {"receiver": {}, "integrations": []}
 _station_receiver_status = "disabled"
 _station_source_status: dict[str, str] = {}
 _station_cloud_stop = threading.Event()
+_alerts_lock = threading.Lock()
+_alerts_cache: dict[str, dict[str, object]] = {}
+_provider_health_lock = threading.Lock()
+_provider_health: dict[str, dict[str, object]] = {
+    "rainviewer": {"healthy": None, "checkedAt": None, "message": "Not checked yet"},
+    "rainbow": {"healthy": None, "checkedAt": None, "message": "Not checked yet"},
+}
+
+
+def record_provider_health(provider: str, status: int, message: str = "") -> None:
+    if provider not in _provider_health:
+        return
+    healthy = 200 <= status < 300
+    safe_message = "Connected" if healthy else f"Request failed (HTTP {status})"
+    if message and status >= 400:
+        safe_message = message[:120]
+    with _provider_health_lock:
+        _provider_health[provider] = {
+            "healthy": healthy,
+            "checkedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "message": safe_message,
+        }
+
+
+def provider_health_snapshot() -> dict[str, dict[str, object]]:
+    with _provider_health_lock:
+        return {name: dict(status) for name, status in _provider_health.items()}
+
+
+def active_alerts_for_point(latitude: float, longitude: float) -> dict[str, object]:
+    """Return cached NWS active alerts for a point; upstream failures may use stale data."""
+    cache_key = f"{latitude:.3f},{longitude:.3f}"
+    now = time.time()
+    with _alerts_lock:
+        cached = _alerts_cache.get(cache_key)
+        if cached and now - float(cached["cachedAt"]) < NWS_ALERTS_CACHE_SECONDS:
+            return {key: value for key, value in cached.items() if key != "cachedAt"}
+        if cached and now < float(cached.get("retryAt", 0)):
+            return {key: value for key, value in cached.items() if key not in ("cachedAt", "retryAt")}
+
+    url = f"{NWS_ALERTS_URL}?{urlencode({'point': cache_key})}"
+    request = Request(url, headers={
+        "Accept": "application/geo+json",
+        "User-Agent": "Dayglance/1.0 (https://github.com/mderdouri/Dayglance)",
+    })
+    try:
+        with urlopen(request, timeout=10) as response:
+            if response.status != 200:
+                raise OSError(f"National Weather Service returned HTTP {response.status}")
+            payload = json.loads(response.read(2_000_000).decode("utf-8"))
+        if not isinstance(payload, dict) or not isinstance(payload.get("features"), list):
+            raise ValueError("Unexpected National Weather Service alert response")
+        features = []
+        for feature in payload["features"]:
+            if not isinstance(feature, dict) or not isinstance(feature.get("properties"), dict):
+                continue
+            properties = feature["properties"]
+            fields = (
+                "id", "areaDesc", "sent", "effective", "onset", "expires", "ends",
+                "status", "messageType", "category", "severity", "certainty", "urgency",
+                "event", "headline", "description", "instruction", "response", "web",
+            )
+            features.append({
+                "id": feature.get("id") or properties.get("id"),
+                "properties": {key: properties.get(key) for key in fields if key in properties},
+            })
+        result = {"features": features, "checkedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now)), "stale": False}
+        with _alerts_lock:
+            _alerts_cache[cache_key] = {**result, "cachedAt": now}
+            if len(_alerts_cache) > 64:
+                oldest_key = min(_alerts_cache, key=lambda key: float(_alerts_cache[key]["cachedAt"]))
+                _alerts_cache.pop(oldest_key, None)
+        return result
+    except (HTTPError, URLError, TimeoutError, OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+        with _alerts_lock:
+            cached = _alerts_cache.get(cache_key)
+            if cached:
+                cached["stale"] = True
+                cached["retryAt"] = now + NWS_ALERTS_CACHE_SECONDS
+                cached["error"] = "National Weather Service alert data could not be refreshed"
+                return {key: value for key, value in cached.items() if key not in ("cachedAt", "retryAt")}
+            _alerts_cache[cache_key] = {"features": [], "checkedAt": None, "stale": True, "error": "National Weather Service alert data is temporarily unavailable", "cachedAt": now, "retryAt": now + NWS_ALERTS_CACHE_SECONDS}
+        return {"features": [], "checkedAt": None, "stale": True, "error": "National Weather Service alert data is temporarily unavailable"}
 
 
 def read_radar_key() -> str:
@@ -714,8 +800,10 @@ class Handler(BaseHTTPRequestHandler):
         except (URLError, TimeoutError, OSError):
             return 502, "application/json", b'{"error":"Weather radar provider is unavailable"}'
 
-    def send_upstream(self, url: str, *, api_key: str | None = None, usage_kind: str | None = None) -> None:
+    def send_upstream(self, url: str, *, api_key: str | None = None, usage_kind: str | None = None, radar_provider: str | None = None) -> None:
         status, content_type, body = self.upstream_response(url, api_key=api_key)
+        if radar_provider:
+            record_provider_health(radar_provider, status)
         if status == 200 and usage_kind:
             try:
                 record_rainbow_usage(usage_kind)
@@ -745,6 +833,24 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self.send_json(200, station_settings_payload())
             return
+        if requested == "api/weather-alerts":
+            if not self.is_local_app_request():
+                self.send_error(403, "Weather alerts are restricted to the local Dayglance display")
+                return
+            try:
+                params = parse_qs(urlsplit(self.path).query, max_num_fields=4)
+                latitude = float(params["latitude"][0])
+                longitude = float(params["longitude"][0])
+                if not (math.isfinite(latitude) and math.isfinite(longitude) and -90 <= latitude <= 90 and -180 <= longitude <= 180):
+                    raise ValueError
+            except (KeyError, IndexError, TypeError, ValueError):
+                self.send_json(400, {"error": "Valid latitude and longitude are required"})
+                return
+            try:
+                self.send_json(200, active_alerts_for_point(latitude, longitude))
+            except OSError as error:
+                self.send_json(502, {"error": str(error)})
+            return
         if requested == "api/local-stations":
             if not self.is_local_app_request():
                 self.send_error(403, "Station readings are restricted to the local Dayglance display")
@@ -764,18 +870,19 @@ class Handler(BaseHTTPRequestHandler):
                     "tiles": max(0, int(usage["tileAllowance"]) - int(usage["tiles"])),
                     "nowcast": max(0, int(usage["nowcastAllowance"]) - int(usage["nowcast"])),
                 },
+                "providers": provider_health_snapshot(),
             })
             return
         if requested == "api/radar/rainviewer-metadata":
             if self.radar_provider_guard():
-                self.send_upstream(RAINVIEWER_METADATA)
+                self.send_upstream(RAINVIEWER_METADATA, radar_provider="rainviewer")
             return
         if requested == "api/radar/rainbow-snapshot":
             if not self.radar_provider_guard():
                 return
             url = self.rainbow_url("tiles/v1/snapshot")
             if url:
-                self.send_upstream(url, api_key=read_radar_key())
+                self.send_upstream(url, api_key=read_radar_key(), radar_provider="rainbow")
             return
         if requested.startswith("api/radar/rainbow-tile/"):
             if not self.radar_provider_guard():
@@ -798,7 +905,7 @@ class Handler(BaseHTTPRequestHandler):
             endpoint = f"tiles/v1/precip/{snapshot}/{forecast_time}/{zoom}/{x}/{y}"
             url = self.rainbow_url(endpoint, {"coverage": "1"})
             if url:
-                self.send_upstream(url, api_key=read_radar_key(), usage_kind="tiles")
+                self.send_upstream(url, api_key=read_radar_key(), usage_kind="tiles", radar_provider="rainbow")
             return
         if requested.startswith("api/radar/rainbow-nowcast/"):
             if not self.radar_provider_guard():
@@ -817,7 +924,7 @@ class Handler(BaseHTTPRequestHandler):
             endpoint = f"nowcast/v1/precip/{longitude}/{latitude}"
             url = self.rainbow_url(endpoint)
             if url:
-                self.send_upstream(url, api_key=read_radar_key(), usage_kind="nowcast")
+                self.send_upstream(url, api_key=read_radar_key(), usage_kind="nowcast", radar_provider="rainbow")
             return
         mime_type = FILES.get(requested)
         if mime_type is None:
@@ -1036,6 +1143,7 @@ class Handler(BaseHTTPRequestHandler):
         validation_url = f"{RAINBOW_BASE}/tiles/v1/snapshot"
         status, _, body = self.upstream_response(f"{validation_url}?{urlencode({'token': api_key})}")
         if status != 200:
+            record_provider_health("rainbow", status)
             self.send_json(400, {"error": "Rainbow did not accept this API key. Check it in your Rainbow developer account and try again."})
             return
         try:
@@ -1043,8 +1151,10 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(snapshot, dict) or not isinstance(snapshot.get("snapshot"), int):
                 raise ValueError
         except (ValueError, json.JSONDecodeError):
+            record_provider_health("rainbow", 502)
             self.send_json(502, {"error": "Rainbow returned an unexpected response while validating the key."})
             return
+        record_provider_health("rainbow", 200)
         try:
             write_private_json(RADAR_CREDENTIALS_PATH, {"rainbowApiKey": api_key})
         except OSError:
