@@ -1,5 +1,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
 const {arrange,move}=require('../location-order.js');
 
 const places=[{id:'dc'},{id:'boston'},{id:'nyc'}];
@@ -29,4 +31,10 @@ test('additional locations can move in either direction without moving the defau
 test('movement stops at the first and last additional location',()=>{
   assert.deepEqual(move(places,'boston',-1).map(place=>place.id),['dc','boston','nyc']);
   assert.deepEqual(move(places,'nyc',1).map(place=>place.id),['dc','boston','nyc']);
+});
+
+test('service worker caches the new location ordering helper in the app shell',()=>{
+  const serviceWorker=fs.readFileSync(path.join(__dirname,'..','sw.js'),'utf8');
+  assert.match(serviceWorker,/dayglance-shell-v11/);
+  assert.match(serviceWorker,/['"]\.\/location-order\.js['"]/);
 });
