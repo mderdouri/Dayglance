@@ -25,6 +25,7 @@ These instructions apply to AI agents working in this repository. Follow the use
 
 - Run the relevant commands in [CODING_STANDARDS.md](docs/project/CODING_STANDARDS.md). For broad changes, use the same checks as the `CI / Verify` workflow.
 - For UI changes, inspect the affected behavior at 800×480 and update genuine screenshots and user documentation when the visible behavior or setup instructions change. Do not claim device testing unless it was performed on the device.
+- Before calling a feature complete or deploying it, map each advertised capability to its user-visible entry point and activation steps. Verify that the control or supported option is actually discoverable in the running app, not only implemented in a backend or config parser; if setup requires files or credentials, show that clearly in the relevant screen and documentation.
 - Follow [DESIGN_NOTES.md](docs/project/DESIGN_NOTES.md) for touch-first interaction decisions.
 - Report checks that could not run and why. Do not hide failures or claim that a check passed based only on a command being started.
 - Keep `AGENTS.md`, the coding standards, contributor guidance, and CI workflow consistent when changing development practices.

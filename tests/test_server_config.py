@@ -99,6 +99,17 @@ class DeviceSettingsConfigTests(unittest.TestCase):
             self.assertIn("text/javascript", response.headers["Content-Type"])
             self.assertIn("DayglanceAirQuality", response.read().decode("utf-8"))
 
+    def test_station_provider_options_are_visible_in_settings_page(self):
+        with urlopen(self.base + "index.html", timeout=3) as response:
+            self.assertEqual(response.status, 200)
+            page = response.read().decode("utf-8")
+        settings = page.split('id="station-settings"', 1)[1].split("</section>", 1)[0]
+        self.assertNotIn("hidden", settings.split(">", 1)[0])
+        self.assertIn("Ambient Weather", settings)
+        self.assertIn("Local upload · Cloud API", settings)
+        self.assertIn("Weather Underground PWS", settings)
+        self.assertIn("device-station-credentials.json", settings)
+
     def test_device_file_overrides_config_defaults(self):
         self.config_path.write_text(json.dumps({"startup": {"autoStart": True, "kiosk": False}}), encoding="utf-8")
         self.settings_path.write_text(json.dumps({"autoStart": False, "kiosk": True}), encoding="utf-8")

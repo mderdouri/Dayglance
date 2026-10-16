@@ -101,7 +101,7 @@ Browser preferences changed in the Settings menu are stored in that browser and 
 
 ## Local weather-station integration
 
-Each saved city may be associated with zero or one station observation source. This association is per browser/device and can be changed in **Settings → Local Weather Stations**. A station does not become an extra carousel location: its live measurements appear on the selected city's dashboard, while the forecast and hourly view continue to use Open-Meteo. Station values are labeled as observations and automatically stop being used when their observation timestamp is older than `staleAfterSeconds`.
+Each saved city may be associated with zero or one station observation source. **Settings → Local Weather Stations** always lists the supported connection types, even before a source has been configured, and shows any configured feeds with their status; it also lets you associate a source with a saved city. Adding/removing a source remains a `config.json` change, while credentials are kept separately in the private device-only credentials file. A station does not become an extra carousel location: its live measurements appear on the selected city's dashboard, while the forecast and hourly view continue to use Open-Meteo. Station values are labeled as observations and automatically stop being used when their observation timestamp is older than `staleAfterSeconds`.
 
 Ambient Weather supports two connections:
 

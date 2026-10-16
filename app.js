@@ -587,20 +587,21 @@ function renderSettings(){
     actions.append(edit,remove);row.append(label,actions);holder.append(row);
   });
   if(locations.length<2){const empty=document.createElement('p');empty.className='settings-help';empty.textContent='No additional locations have been added.';holder.append(empty)}
-  $('#station-settings').hidden=!stationIntegrations.length;
   renderStationSettings();
 }
 function renderStationSettings(){
   const holder=$('#station-integrations-list');if(!holder)return;holder.replaceChildren();
+  if(!stationIntegrations.length){const empty=document.createElement('p');empty.className='settings-help station-empty';empty.textContent='No station sources are configured yet.';holder.append(empty);return}
   for(const source of stationIntegrations){
     const row=document.createElement('div');row.className='station-integration-row';
     const label=document.createElement('div');label.className='station-integration-name';
     const name=document.createElement('strong');name.textContent=source.name||'Local weather station';
+    const connection=document.createElement('small');connection.textContent=source.provider==='ambient-weather'?(source.connection==='cloud-api'?'Ambient Weather cloud API':'Ambient Weather local upload'):source.provider==='weather-underground'?'Weather Underground PWS cloud API':'Weather station';
     const sample=stationSamples[source.id];
     const age=sample?.available?Number(sample.ageSeconds||0)+Math.max(0,Math.floor((Date.now()-sample.clientReceivedAt)/1000)):null;
     const fresh=sample?.fresh&&age<=Number(sample.staleAfterSeconds||600);
     const status=document.createElement('small');status.textContent=stationReceiverStatus.startsWith('error:')&&source.connection==='local-upload'?`Receiver error · ${stationReceiverStatus.slice(7)}`:stationReceiverStatus==='unreachable'?'Unable to read station receiver status':fresh?`Receiving data · ${age<60?'just now':`${Math.floor(age/60)} min ago`}`:sample?.available?'Last reading is stale':sample?.status||'Waiting for first reading';
-    label.append(name,status);
+    label.append(name,connection,status);
     const select=document.createElement('select');select.setAttribute('aria-label',`City for ${source.name||'local weather station'}`);
     const unassigned=document.createElement('option');unassigned.value='';unassigned.textContent='Not assigned to a city';select.append(unassigned);
     const assigned=saved.stationAssociations[source.id]||'';
