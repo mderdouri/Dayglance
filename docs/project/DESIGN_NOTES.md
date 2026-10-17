@@ -28,6 +28,8 @@ Keep an essential way to leave a long scrolling screen within reach. A compact s
 
 The settings screen scrolls vertically by swiping over its content. It does not show a scrollbar; the settings panel remains keyboard-focusable and uses native touch scrolling plus drag-to-pan for touch panels that report gestures as mouse input. Its compact title and close control stay pinned while the options move beneath them. When the panel itself has focus, Arrow Up/Down move in small increments, Page Up/Down move by most of the viewport, and Home/End reach the boundaries. Test touch, mouse-like drag, wheel/trackpad where available, keyboard scrolling, click targets, and start-to-end scrolling separately.
 
+Keep the Connections & Alerts entry first and full width so its status summary is easy to see. Follow it with the full-width Locations section, then pair Weather & Display with Startup & Screen and Location Rotation with Hourly Detail Controls. On narrow screens, let the cards stack in that same order.
+
 ## Hourly detail positioning
 
 Today's hourly view begins at the current local hour and omits earlier hours. If six or fewer hours remain, show up to four hours from tomorrow after today's forecast. Other days begin centered on 8 a.m.; the full day remains reachable back to midnight and forward to 11 p.m. Reset the scroll position for every selected day.

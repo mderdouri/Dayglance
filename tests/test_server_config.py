@@ -183,7 +183,10 @@ class DeviceSettingsConfigTests(unittest.TestCase):
     def test_severe_alert_controls_and_settings_navigation_are_present(self):
         with urlopen(self.base + "index.html", timeout=3) as response:
             page = response.read().decode("utf-8")
-        self.assertLess(page.index('class="settings-section location-settings"'), page.index('id="settings-open-connections"'))
+        self.assertLess(page.index('id="settings-open-connections"'), page.index('class="settings-section location-settings"'))
+        with urlopen(self.base + "styles.css", timeout=3) as response:
+            styles = response.read().decode("utf-8")
+        self.assertIn(".settings-nav-card{grid-column:1/-1", styles)
         with open(PROJECT_ROOT / "app.js", encoding="utf-8") as app_file:
             app_script = app_file.read()
         self.assertIn("settings-connections-view", app_script)

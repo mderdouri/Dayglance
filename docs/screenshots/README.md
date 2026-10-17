@@ -48,7 +48,9 @@ This 800×480 browser preview uses synthetic hourly data; it shows the default v
 
 ![Settings showing available Ambient Weather and Weather Underground connections](dayglance-station-connections-settings-20261016.png)
 
-![Reorganized Settings home with Locations first and a Connections & Alerts shortcut](dayglance-settings-home-20261016.png)
+![Settings home with a full-width Connections & Alerts shortcut at the top and balanced settings groups below](dayglance-settings-home-connections-first-20261017.png)
+
+This isolated 800×480 browser capture uses a sample Washington, D.C. location. Connections & Alerts spans the first row, Locations remains full width beneath it, and the remaining settings are paired by category. At narrower widths, the same order stacks into one column. This is not a physical touchscreen capture.
 
 ![Connections & Alerts settings showing severity controls and current feed status](dayglance-connections-alerts-20261016.png)
 
