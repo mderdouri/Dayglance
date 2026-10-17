@@ -49,6 +49,9 @@
             <div class="current-heading">
               <div class="place-title"><div class="place-name-group"><h1 id="place-name">—</h1><p id="place-region"></p></div><button class="edit-location" id="edit-location" type="button" aria-label="Edit this location" title="Edit location">✎</button></div>
               <p id="today-date">—</p>
+              <button class="alerts-banner" id="alerts-banner" type="button" hidden aria-label="Open severe weather alerts">
+                <span class="status-dot status-dot-red" aria-hidden="true"></span><span class="alerts-banner-copy"><strong id="alerts-banner-title"></strong><small id="alerts-banner-count"></small></span><span class="alerts-banner-action">Details ›</span>
+              </button>
             </div>
             <button class="current-today-button" id="today-details" type="button" aria-label="Show today's hourly weather details">
               <span class="current-main">
@@ -121,10 +124,21 @@
         <p class="radar-note" id="radar-note" role="status" aria-live="polite">Recent radar by RainViewer · Forecast frames by Rainbow Weather</p>
       </section>
 
+      <section class="alerts-screen" id="alerts-screen" hidden aria-labelledby="alerts-title" tabindex="0">
+        <div class="alerts-card">
+          <header class="alerts-heading">
+            <div><p class="eyebrow">NATIONAL WEATHER SERVICE</p><h1 id="alerts-title">Weather alerts</h1><p id="alerts-location">—</p></div>
+            <button class="close-details" id="alerts-close" type="button" aria-label="Close weather alerts">×</button>
+          </header>
+          <div class="alerts-list" id="alerts-list" tabindex="0" aria-label="Active weather alert details"></div>
+          <p class="settings-help">Dayglance checks active alerts every five minutes while this location is shown. This display is not an emergency warning service; keep official alerts enabled on your phone or NOAA Weather Radio.</p>
+        </div>
+      </section>
+
       <section class="settings-screen" id="settings-screen" hidden aria-labelledby="settings-title" tabindex="0">
         <div class="settings-card">
           <header class="settings-heading">
-            <div><p class="eyebrow">DAYGLANCE</p><h1 id="settings-title">Settings</h1></div>
+            <div class="settings-title-group"><button class="settings-back" id="settings-back" type="button" aria-label="Back to Settings" hidden>‹</button><div><p class="eyebrow">DAYGLANCE</p><h1 id="settings-title">Settings</h1></div></div>
             <button class="close-details" id="settings-close" type="button" aria-label="Close settings">×</button>
           </header>
           <p class="settings-help settings-config-note">Swipe up or down across settings to see every option. The close button stays at the top while you scroll. For keyboard-free setup, edit config.json to preconfigure locations, display settings, and Pi startup. It lists valid values and examples. Browser-saved settings and Pi-local startup overrides take priority.</p>
@@ -135,6 +149,10 @@
               <div id="settings-locations" class="settings-location-list"></div>
               <button class="small-action add-setting-location" id="settings-add-location" type="button">＋ Add a location</button>
             </section>
+            <button class="settings-section settings-nav-card" id="settings-open-connections" type="button">
+              <span class="settings-nav-heading"><span class="status-dot status-dot-neutral" id="connection-summary-dot" aria-hidden="true"></span><strong>Connections &amp; Alerts</strong><span class="settings-nav-arrow" aria-hidden="true">›</span></span>
+              <small id="connection-summary">Weather stations, radar services, and severe weather alerts</small>
+            </button>
             <section class="settings-section station-settings" id="station-settings">
               <h2>Local Weather Stations</h2>
               <p class="settings-help">Connect one station to a saved city. Cloud profiles can be reused by multiple stations; keys stay on this Pi and are never shown again after saving. Cloud changes apply live. Config-defined sources are labeled “From config.json.” Local uploads are still configured through <code>config.json</code> and need a service restart.</p>
@@ -196,6 +214,10 @@
             </section>
             <section class="settings-section radar-settings">
               <h2>Radar &amp; Provider Account</h2>
+              <div class="provider-status-list" aria-live="polite">
+                <div><span class="status-dot status-dot-neutral" id="rainviewer-health-dot" aria-hidden="true"></span><span id="rainviewer-health-status">RainViewer · not checked yet</span></div>
+                <div><span class="status-dot status-dot-neutral" id="rainbow-health-dot" aria-hidden="true"></span><span id="rainbow-health-status">Rainbow Weather · checking setup</span></div>
+              </div>
               <label class="setting-row"><span>Precipitation map idle timeout</span><select id="setting-radar-timeout"><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="60">1 minute</option><option value="300">5 minutes</option></select></label>
               <p class="settings-help">Closes the precipitation map after inactivity to limit accidental extended viewing. The timer resets when you interact with the map. No service restart is needed.</p>
               <p class="settings-help">RainViewer supplies up to 2 hours of past radar frames, refreshed about every 10 minutes. It is free for personal or educational use; no account or key is required. Forecast frames are provided by Rainbow Weather.</p>
@@ -208,6 +230,13 @@
               <p class="settings-help" id="radar-key-status">The key is validated and stored on the Dayglance device in a restricted file. It is not written to config.json or browser storage. Key setup is available from the Pi's local screen.</p>
               <div class="setting-row paid-usage-row"><span>Rainbow pay-as-you-go<small id="paid-usage-state" class="startup-state" aria-live="polite">Disabled</small></span><button class="small-action" id="rainbow-paid-toggle" type="button" aria-pressed="false">Enable paid use</button></div>
               <p class="settings-help">Enabling this permits tile requests past this device's free allowance and may incur charges. Rainbow's account-wide dashboard is authoritative; the local meter cannot see usage from other apps or devices.</p>
+            </section>
+            <section class="settings-section alerts-settings">
+              <h2>Severe Weather Alerts</h2>
+              <label class="setting-row check-row"><span>Show active alerts for the selected location</span><input id="setting-alerts-enabled" type="checkbox" /></label>
+              <label class="setting-row"><span>Minimum alert severity</span><select id="setting-alert-severity"><option value="minor">Minor &amp; above</option><option value="moderate">Moderate &amp; above</option><option value="severe">Severe &amp; above</option><option value="extreme">Extreme only</option></select></label>
+              <div class="alert-service-status"><span class="status-dot status-dot-neutral" id="alert-service-dot" aria-hidden="true"></span><span id="alert-service-status">Checking alert service…</span></div>
+              <p class="settings-help">Uses free National Weather Service active alerts for U.S. locations. Dayglance checks the displayed city every five minutes. This display is not an emergency alert system.</p>
             </section>
           </div>
           <p class="settings-status" id="settings-status" role="status" aria-live="polite"></p>

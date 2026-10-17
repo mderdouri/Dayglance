@@ -35,6 +35,20 @@
     }, 4500);
   }
 
+  function displayProviderHealth(name, health, configured = true) {
+    const id = name === 'rainviewer' ? 'rainviewer' : 'rainbow';
+    const dot = $(`#${id}-health-dot`), label = $(`#${id}-health-status`);
+    if (!dot || !label) return;
+    if (!configured) { dot.className = 'status-dot status-dot-neutral'; label.textContent = `${name === 'rainbow' ? 'Rainbow Weather' : 'RainViewer'} · not configured`; return; }
+    if (!health?.checkedAt || typeof health.healthy !== 'boolean') { dot.className = 'status-dot status-dot-amber'; label.textContent = `${name === 'rainbow' ? 'Rainbow Weather' : 'RainViewer'} · waiting for first request`; return; }
+    const checkedAt = new Date(health.checkedAt), age = Date.now() - checkedAt.getTime();
+    const state = !health.healthy ? 'red' : age > 30 * 60 * 1000 ? 'amber' : 'green';
+    dot.className = `status-dot status-dot-${state}`;
+    const time = Number.isNaN(checkedAt.getTime()) ? 'unknown time' : new Intl.DateTimeFormat(undefined, {hour: 'numeric', minute: '2-digit'}).format(checkedAt);
+    label.textContent = `${name === 'rainbow' ? 'Rainbow Weather' : 'RainViewer'} · ${state === 'green' ? 'connected' : health.message || 'unavailable'} · checked ${time}`;
+    document.dispatchEvent(new Event('dayglance-provider-status'));
+  }
+
   async function refreshProviderStatus() {
     try {
       const response = await fetch('./api/radar/status', {cache: 'no-store'});
@@ -42,6 +56,8 @@
       if (!response.ok) throw new Error(info.error || 'Could not read provider usage.');
       const usage = info.usage, remaining = info.remaining;
       rainbowConfigured = Boolean(info.configured);
+      displayProviderHealth('rainbow', info.providers?.rainbow, rainbowConfigured);
+      displayProviderHealth('rainviewer', info.providers?.rainviewer, true);
       canManageKey = Boolean(info.canManage);
       providerUsage = usage;
       paidUsageEnabled = usage.allowPaidUsage === true;
@@ -61,6 +77,7 @@
       $('#radar-future').textContent = rainbowConfigured ? 'Next 4 hours' : 'Next 4 hours · Set up';
       return info;
     } catch (error) {
+      displayProviderHealth('rainbow', {healthy: false, checkedAt: new Date().toISOString(), message: 'Status unavailable'});
       $('#radar-usage').textContent = error.message;
       $('#radar-future').disabled = false;
       $('#radar-future').classList.add('needs-setup');
@@ -243,6 +260,7 @@
     const snapshot = Number(info.snapshot);
     if (!Number.isFinite(snapshot)) throw new Error('Rainbow returned an invalid radar snapshot.');
     frames.future = Array.from({length: 25}, (_, index) => ({snapshot, offset: index * 600, validTime: snapshot + index * 600}));
+    await refreshProviderStatus();
   }
 
   async function open(location) {
@@ -265,6 +283,7 @@
       map.setView([location.latitude, location.longitude], 5);
       await refreshProviderStatus();
       try { await loadPastFrames(); } catch { frames.past = []; }
+      await refreshProviderStatus();
       for (const button of Object.values(modeButtons)) button.disabled = false;
       chooseMode('past', {toggle: false});
       requestAnimationFrame(() => map.invalidateSize());

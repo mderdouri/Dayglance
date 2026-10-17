@@ -104,7 +104,9 @@ function makeRadar({configured = false, snapshotOk = true} = {}) {
   // in this VM context so initializeMap() resolves its unqualified `L` name.
   const context = {document, window, L: window.L, fetch, Event, Intl, Date, Number, Array, String, Promise, RegExp, console, requestAnimationFrame: callback => callback()};
   vm.runInNewContext(source, context, {filename: 'radar.js'});
-  const flush = async () => { for (let i = 0; i < 5; i += 1) await Promise.resolve(); };
+  // Provider status is refreshed after forecast metadata; allow the complete async
+  // chain to settle before asserting that the first Rainbow tile was requested.
+  const flush = async () => { for (let i = 0; i < 16; i += 1) await Promise.resolve(); };
   return {elements, timers, radarLayers, window, flush, open: window.DayglanceRadar.open, setIdleTimeout: window.DayglanceRadar.setIdleTimeout};
 }
 

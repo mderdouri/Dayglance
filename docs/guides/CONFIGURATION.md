@@ -43,7 +43,9 @@ Edit or copy `config.json` into the project root before starting Dayglance. Its 
     "temperatureGraphRange": "day",
     "autoScrollLocations": false,
     "autoScrollIntervalSeconds": 30,
-    "showBumpers": false
+    "showBumpers": false,
+    "alertsEnabled": true,
+    "alertMinimumSeverity": "moderate"
   },
   "startup": {
     "autoStart": false,
@@ -89,6 +91,48 @@ Preference values are:
 - `autoScrollLocations`: `true` automatically rotates through saved locations when at least two exist; `false` leaves location changes manual. The rotation loops between saved cities and never opens the add-location page.
 - `autoScrollIntervalSeconds`: `30`, `60`, `300`, or `900` seconds on each location (30 seconds, 1 minute, 5 minutes, or 15 minutes). Used only when auto-scroll is enabled.
 - `showBumpers`: `false` by default to keep the hourly view uncluttered. Set to `true` to show optional left/right buttons; hourly cards remain swipeable/scrollable either way.
+- `alertsEnabled`: `true` (default) to show active U.S. National Weather Service alerts for the currently displayed city; `false` disables the alert banner and alert checks.
+- `alertMinimumSeverity`: `minor`, `moderate` (default), `severe`, or `extreme`. Alerts at or above the selected severity are shown. Alerts without a reported severity remain visible so missing metadata cannot silently hide them.
+
+## Severe weather alerts
+
+Dayglance uses the free [National Weather Service active alerts API](https://www.weather.gov/documentation/services-web-alerts) for U.S. locations. It checks the currently displayed city every five minutes, keeps results in memory, and shows an alert banner on that city's dashboard when an alert meets the configured severity. Tap the banner for the alert headline, area, urgency, effective/expiration times, description, and instructions. Manage the feature in **Settings → Connections & Alerts → Severe Weather Alerts** or set `preferences.alertsEnabled` and `preferences.alertMinimumSeverity` in `config.json`. No API key or service restart is needed. Locations outside the U.S. show an unsupported status. Dayglance is a display-only supplement, not an emergency alert system or push notification service; keep official alerts enabled on your phone or NOAA Weather Radio.
+
+### Future international alert coverage
+
+Severe weather alerts currently work only for U.S. locations through the National Weather Service. International sources are documented for future evaluation in [Dayglance issue #15](https://github.com/mderdouri/Dayglance/issues/15); they are not active in the app yet.
+
+Research found public alert feeds or services for these requested countries. Most regional feeds use the Common Alerting Protocol (CAP), RSS, or Atom rather than one shared worldwide API.
+
+| Country or group | Public source identified | Integration note |
+|---|---|---|
+| Canada | Environment and Climate Change Canada Meteorological Service GeoMet weather-alert collection | Public OGC API with geospatial alert fields. |
+| Mexico | CONAGUA / National Meteorological Service (SMN) | CAP feed listed by the WMO. |
+| France, United Kingdom, Belgium, Portugal, Italy, Greece | MeteoAlarm country Atom feeds | Public feeds are available. Direct API access for redistributors may require requesting a token. |
+| Germany | Deutscher Wetterdienst (DWD) | Official alert feed listed by the WMO. |
+| India | India Meteorological Department and National Disaster Management Authority / Sachet | Public CAP feeds listed by the WMO. |
+| China | China Meteorological Administration | Public CAP feed listed by the WMO. |
+| Japan | Japan Meteorological Agency disaster-prevention XML Atom feeds | Needs a country-specific XML and warning-area adapter. JMA says feeds can be delayed or interrupted. |
+| Algeria | Office National de la Météorologie | CAP feed listed by the WMO. |
+| Tunisia | National Institute of Meteorology (INM) | CAP feed listed by the WMO. |
+| Egypt | Egyptian Meteorological Authority | CAP feed listed by the WMO. |
+| Saudi Arabia | National Center for Meteorology | Official CAP-alert source listed by the WMO; endpoint format needs validation during implementation. |
+| Pakistan | Pakistan Meteorological Department (PMD) WIS 2.0 | Public CAP-alert dataset is published through its WIS 2.0 service; validate the message/query interface. |
+| Bangladesh | Bangladesh Meteorological Department (BMD) | Public CAP alert pages are available; a stable public feed/API contract still needs confirmation. |
+| Burkina Faso | National Meteorological Agency (ANAM) | CAP feed listed by the WMO. |
+| Senegal | National Agency of Civil Aviation and Meteorology (ANACIM) | CAP feed listed by the WMO. |
+| South Africa | South African Weather Service | CAP RSS feed listed by the WMO. |
+| Spain | State Meteorological Agency (AEMET) | CAP RSS feed listed by the WMO. |
+
+Sources: [WMO Severe Weather Information Centre source registry](https://severeweather.wmo.int/json/sources.json), [MeteoAlarm API portal](https://api.meteoalarm.org/) and [active feed directory](https://feeds.meteoalarm.org/), [Canada GeoMet alert fields](https://api.weather.gc.ca/collections/weather-alerts/queryables?f=html), [JMA XML feed information](https://xml.kishou.go.jp/xmlpull.html), [Pakistan PMD WIS 2.0](https://wis2box.pmd.gov.pk/), and [Bangladesh BMD CAP alerts](https://cap.bmd.gov.bd/bmd-cap-alerts/).
+
+The WMO registry reports feed availability, not an uptime guarantee. Public access alone does not grant unrestricted redistribution rights. Before adding any provider, verify its license and attribution, rate limits, update cadence, geographic matching method, supported warning types, and failure behavior. In particular, a country-wide alert feed must not be treated as a city-specific warning unless its area geometry or official warning-area identifiers support that match. International coverage remains a future feature; NWS is the only implemented alert provider for now.
+
+Settings keeps **Locations** at the top, followed by day-to-day **Weather & Display**, **Startup & Screen**, and compact location/hourly controls. Select **Connections & Alerts** to manage local/cloud station integrations, radar accounts and provider-health indicators, and severe weather alert preferences. The status dots summarize recent checks: green means recently healthy, amber means waiting, stale, or recovering, red means an observed failure, and gray means not configured or with no status available yet.
+
+![Settings for severe weather alerts, including the minimum-severity selector and feed status](../screenshots/dayglance-connections-alerts-20261016.png)
+
+This isolated preview uses synthetic alert data for display verification; it is not a physical Pi capture or live warning.
 
 The temperature graph period can also be changed in **Settings → Weather & display**. The 16-day view requests the provider's maximum forecast horizon. The 30-day view requests the past 29 days plus today and displays daily highs and lows from Open-Meteo's archived past-days feature. Availability and archive coverage depend on the provider. Switching graph periods does not require a service restart.
 

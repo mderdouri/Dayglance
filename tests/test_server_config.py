@@ -103,6 +103,64 @@ class DeviceSettingsConfigTests(unittest.TestCase):
         self.config_path.write_text(json.dumps({"startup": {"autoStart": True, "kiosk": False}}), encoding="utf-8")
         self.assertEqual(self.request(), (200, {"autoStart": True, "kiosk": False, "autostartInstalled": False, "startupSupported": True}))
 
+    def test_weather_alert_endpoint_validates_coordinates_without_calling_upstream(self):
+        for query in ("latitude=91&longitude=-77", "latitude=nan&longitude=-77", "latitude=38.9&longitude=inf"):
+            with self.subTest(query=query):
+                status, payload = self.request(path=f"api/weather-alerts?{query}")
+                self.assertEqual(status, 400)
+                self.assertIn("latitude and longitude", payload["error"])
+
+    def test_weather_alert_endpoint_uses_point_api_and_memory_cache(self):
+        server._alerts_cache.clear()
+        feature = {"id": "https://api.weather.gov/alerts/abc", "properties": {
+            "event": "Severe Thunderstorm Warning", "severity": "Severe", "areaDesc": "District of Columbia",
+            "headline": "Severe thunderstorms expected", "description": "Take shelter.", "expires": "2026-10-16T20:00:00Z",
+        }, "geometry": {"type": "Polygon", "coordinates": [[[1, 2]]]}}
+
+        class FakeResponse(io.BytesIO):
+            status = 200
+
+        def upstream(request, timeout):
+            self.assertEqual(timeout, 10)
+            self.assertIn("api.weather.gov/alerts/active?point=38.907%2C-77.037", request.full_url)
+            self.assertIn("Dayglance/1.0", request.get_header("User-agent"))
+            return FakeResponse(json.dumps({"features": [feature]}).encode("utf-8"))
+
+        try:
+            with patch.object(server, "urlopen", side_effect=upstream) as mocked:
+                status, first = self.request(path="api/weather-alerts?latitude=38.9072&longitude=-77.0369")
+                status2, second = self.request(path="api/weather-alerts?latitude=38.9073&longitude=-77.0371")
+            self.assertEqual((status, status2), (200, 200))
+            self.assertEqual(first["features"], second["features"])
+            self.assertFalse(first["stale"])
+            self.assertEqual(len(first["features"]), 1)
+            self.assertNotIn("geometry", first["features"][0])
+            mocked.assert_called_once()
+        finally:
+            server._alerts_cache.clear()
+
+    def test_weather_alert_refresh_failure_returns_previous_alerts_as_stale(self):
+        server._alerts_cache.clear()
+        feature = {"id": "alert-1", "properties": {"event": "Flood Warning", "severity": "Severe"}}
+
+        class FakeResponse(io.BytesIO):
+            status = 200
+
+        try:
+            with patch.object(server, "urlopen", return_value=FakeResponse(json.dumps({"features": [feature]}).encode("utf-8"))):
+                first = server.active_alerts_for_point(38.9, -77.0)
+            server._alerts_cache["38.900,-77.000"]["cachedAt"] = 0
+            with patch.object(server, "urlopen", side_effect=OSError("network unavailable")) as mocked:
+                stale = server.active_alerts_for_point(38.9, -77.0)
+                retry_cached = server.active_alerts_for_point(38.9, -77.0)
+            self.assertEqual(first["features"], stale["features"])
+            self.assertTrue(stale["stale"])
+            self.assertIn("could not be refreshed", stale["error"])
+            self.assertTrue(retry_cached["stale"])
+            mocked.assert_called_once()
+        finally:
+            server._alerts_cache.clear()
+
     def test_air_quality_helper_is_served_as_javascript(self):
         with urlopen(self.base + "air-quality.js", timeout=3) as response:
             self.assertEqual(response.status, 200)
@@ -121,6 +179,20 @@ class DeviceSettingsConfigTests(unittest.TestCase):
         self.assertIn("Local uploads are still configured through", settings)
         self.assertIn("Cloud changes apply live", settings)
         self.assertIn("From config.json", settings)
+
+    def test_severe_alert_controls_and_settings_navigation_are_present(self):
+        with urlopen(self.base + "index.html", timeout=3) as response:
+            page = response.read().decode("utf-8")
+        self.assertLess(page.index('class="settings-section location-settings"'), page.index('id="settings-open-connections"'))
+        with open(PROJECT_ROOT / "app.js", encoding="utf-8") as app_file:
+            app_script = app_file.read()
+        self.assertIn("settings-connections-view", app_script)
+        self.assertIn('id="alerts-screen"', page)
+        self.assertIn('id="alerts-banner"', page)
+        self.assertIn('<h2>Severe Weather Alerts</h2>', page)
+        self.assertIn('id="setting-alerts-enabled"', page)
+        self.assertIn('id="setting-alert-severity"', page)
+        self.assertIn('option value="extreme"', page)
 
     def test_station_manager_accepts_multiple_cities_and_stores_device_settings(self):
         sources = []
