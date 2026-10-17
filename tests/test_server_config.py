@@ -167,6 +167,16 @@ class DeviceSettingsConfigTests(unittest.TestCase):
             self.assertIn("text/javascript", response.headers["Content-Type"])
             self.assertIn("DayglanceAirQuality", response.read().decode("utf-8"))
 
+    def test_hour_labels_include_clock_context_on_graph_and_cards(self):
+        app_script = (PROJECT_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn("trend-clock-face", app_script)
+        self.assertIn("Hourly temperature · local time", app_script)
+        self.assertIn('class="hour-clock"', app_script)
+        self.assertIn('class="hour-label"', app_script)
+        styles = (PROJECT_ROOT / "styles.css").read_text(encoding="utf-8")
+        self.assertIn(".trend-clock-face{", styles)
+        self.assertIn(".hourly-navigation .hour-label{", styles)
+
     def test_station_provider_options_are_visible_in_settings_page(self):
         with urlopen(self.base + "index.html", timeout=3) as response:
             self.assertEqual(response.status, 200)

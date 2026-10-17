@@ -451,7 +451,7 @@ function setPlaceHeading(location){
 function renderTrend(data,location){
   const holder=$('#trend-chart'),range=preferences.temperatureGraphRange;
   const titles={day:'Next 24 hours',week:'7-day forecast',forecast16:'16-day outlook',history30:'Past 30 days'};
-  text('trend-title',titles[range]);text('trend-legend-key',range==='day'?'Hourly temperature':'Daily high / low');
+  text('trend-title',titles[range]);text('trend-legend-key',range==='day'?'Hourly temperature · local time':'Daily high / low');
   if(range==='history30'){renderHistoricalTrend(location);return}
   if(range==='day'){
   const hourly=data.hourly,start=Math.max(0,hourly.time.findIndex(time=>time>=data.current.time));
@@ -462,7 +462,7 @@ function renderTrend(data,location){
   const pts=temperatures.map((value,index)=>[left+index*(right-left)/(temperatures.length-1),bottom-(value-low)/spread*(bottom-top)]);
   const line=pts.map((point,index)=>`${index?'L':'M'}${point[0].toFixed(1)} ${point[1].toFixed(1)}`).join(' ');
   const area=`${line} L${right} ${bottom+9} L${left} ${bottom+9} Z`;
-  const labels=[0,6,12,18].map(offset=>{const i=Math.min(start+offset,hourly.time.length-1);const x=left+Math.min(offset,temperatures.length-1)*(right-left)/(temperatures.length-1);return `<text class="trend-label" x="${x}" y="106" text-anchor="middle">${localHour(hourly.time[i])}</text>`}).join('');
+  const labels=[0,6,12,18].map(offset=>{const i=Math.min(start+offset,hourly.time.length-1),x=left+Math.min(offset,temperatures.length-1)*(right-left)/(temperatures.length-1),iconX=Math.max(left-1,x-25);return `<circle class="trend-clock-face" cx="${iconX+5.5}" cy="102" r="5"/><path class="trend-clock-hands" d="M${iconX+5.5} 98.5v3.5l2.3 1.5"/><text class="trend-label" x="${iconX+14}" y="106" text-anchor="start">${localHour(hourly.time[i])}</text>`}).join('');
   const dots=pts.filter((_,i)=>i%6===0).map(([x,y])=>`<circle cx="${x}" cy="${y}" r="3" fill="#f9fbfa" stroke="#4b98a9" stroke-width="2"/>`).join('');
   holder.innerHTML=`<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Hourly temperature trend for the next 24 hours"><defs><linearGradient id="trend-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#a9d5df" stop-opacity=".68"/><stop offset="1" stop-color="#dcecef" stop-opacity=".18"/></linearGradient></defs><path d="${area}" fill="url(#trend-fill)"/><path d="${line}" fill="none" stroke="#4b98a9" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/>${dots}${labels}</svg>`;
   return;
@@ -534,8 +534,8 @@ function showDetails(dayIndex){
   const list=$('#hourly-list');list.replaceChildren();
   hourly.time.slice(start,end).forEach((time,index)=>{
     const i=start+index,weather=weatherType(hourly.weather_code[i],true),card=document.createElement('div');card.className='hour-card';
-    const hourLabel=time.slice(0,10)!==day?`Tomorrow ${localHour(time)}`:dayIndex===0&&time.slice(0,13)===currentHour?'Now':localHour(time);
-    card.innerHTML=`<span class="hour-time">${hourLabel}</span><span class="hour-icon" aria-hidden="true">${weather.icon}</span><span class="hour-temp">${Math.round(hourly.temperature_2m[i])}${temperatureSuffix()}</span><span class="hour-rain">Rain ${safeNumber(hourly.precipitation_probability[i])}%</span>`;list.append(card);
+    const includesTomorrow=time.slice(0,10)!==day,hourLabel=includesTomorrow?`<span class="hour-label-part">Tomorrow</span><span class="hour-label-part">${localHour(time)}</span>`:dayIndex===0&&time.slice(0,13)===currentHour?'Now':localHour(time);
+    card.innerHTML=`<span class="hour-time"><svg class="hour-clock" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.1"/><path d="M8 4.5V8l2.5 1.6"/></svg><span class="hour-label">${hourLabel}</span></span><span class="hour-icon" aria-hidden="true">${weather.icon}</span><span class="hour-temp">${Math.round(hourly.temperature_2m[i])}${temperatureSuffix()}</span><span class="hour-rain">Rain ${safeNumber(hourly.precipitation_probability[i])}%</span>`;list.append(card);
   });
   text('hourly-hint',dayIndex===0?(includesTomorrow?'Starts at the current hour and includes a few early hours tomorrow.':'Starts at the current hour; swipe or drag to see the rest of today.'):'Starts at 8 AM; swipe or drag to explore the full day.');
   details.hidden=false;

@@ -28,6 +28,12 @@ This interface preview uses simulated forecast values; it demonstrates the locat
 
 ![Hourly detail cards with touch-friendly navigation](hourly-details.png)
 
+![Clock cues beside time labels on the main temperature graph and hourly forecast cards](dayglance-hour-context-cues-20261016.png)
+
+![Clock cues beside time labels in the hourly detail strip](dayglance-hourly-time-context-20261016.png)
+
+This 800×480 preview uses synthetic forecast data and an example location.
+
 ![Hourly detail view showing the 24-hour strip](hourly-view.jpg)
 
 ![Hourly detail view with touch scrolling and the optional arrow bumpers hidden by default](hourly-view-bumpers-off-20261016.png)

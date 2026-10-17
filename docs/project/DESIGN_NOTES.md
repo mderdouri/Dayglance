@@ -34,6 +34,10 @@ Keep the Connections & Alerts entry first and full width so its status summary i
 
 Today's hourly view begins at the current local hour and omits earlier hours. If six or fewer hours remain, show up to four hours from tomorrow after today's forecast. Other days begin centered on 8 a.m.; the full day remains reachable back to midnight and forward to 11 p.m. Reset the scroll position for every selected day.
 
+## Time-of-day labels
+
+Pair numeric hourly labels on the main temperature graph and in hourly forecast cards with a small clock-face icon. Keep the icon decorative for assistive technology because the adjacent label already provides the time. At 800×480, check the icon and time together fit without clipping, including longer tomorrow labels in the horizontal detail strip.
+
 ## Raspberry Pi storage writes
 
 Treat microSD writes as a limited resource. Keep frequently refreshed or temporary weather responses in memory while Dayglance is running; persist locations and user-selected preferences only when they change. The service worker may cache the small offline app shell, but should avoid rewriting identical assets and must not cache forecast/API responses. Keep routine successful-request logging disabled unless a measured diagnostic need justifies it. Preserve the offline startup shell and explain any loss of cross-restart weather cache when reducing writes. When changing storage behavior, test the write-avoidance paths and document expected persistence and offline behavior; distinguish source-level analysis from measured device I/O.
