@@ -27,7 +27,7 @@ Dayglance provides weather forecasts and archived past-days data through Open-Me
 - Forecast refresh becomes available once a location is configured; the first-run location screen has no refresh action.
 - Current conditions, feels-like temperature, sunrise/sunset, modeled U.S. AQI and PM2.5, and a configurable temperature graph: next 24 hours, 7-day forecast, up to 16 forecast days, or archived weather data for the past 30 days.
 - Optional rain radar with selectable past-two-hour observations or next-four-hour forecast. It plays automatically after tiles load and has a configurable idle timeout, defaulting to one minute. Rainbow paid usage is off by default.
-- Hourly detail cards for today or a selected forecast day. Today starts at the current hour with no past hours; other days open centered on 8 AM. Swipe, drag, use the large arrow controls, or scroll the hourly strip.
+- Hourly detail cards for today or a selected forecast day. Today starts at the current hour with no past hours; other days open centered on 8 AM. Swipe, drag, or scroll the hourly strip; optional arrow controls are off by default and can be enabled in Settings or `config.json`.
 - Multiple saved locations with touch-friendly horizontal navigation, plus an edit control beside the city name.
 - Active NWS severe weather alerts for U.S. locations, with configurable minimum severity, five-minute in-memory refresh, and a dashboard banner that opens alert details. This is a display supplement, not an emergency warning or push-notification service.
 - Optional automatic sideways rotation through saved locations, with configurable 30-second, 1-minute, 5-minute, and 15-minute dwell times.

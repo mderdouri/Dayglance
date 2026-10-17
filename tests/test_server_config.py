@@ -294,6 +294,16 @@ class DeviceSettingsConfigTests(unittest.TestCase):
             payload = server.station_status_payload()
         self.assertEqual(payload["integrations"][0]["status"], "Last local reading is stale")
 
+    def test_hourly_scroll_bumpers_are_disabled_by_default(self):
+        project_config = json.loads((PROJECT_ROOT / "config.json").read_text(encoding="utf-8"))
+        with urlopen(self.base + "index.html", timeout=3) as response:
+            page = response.read().decode("utf-8")
+        app = (PROJECT_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertFalse(project_config["preferences"]["showBumpers"])
+        self.assertIn("showBumpers:false", app)
+        self.assertIn('id="setting-bumpers" type="checkbox"', page)
+        self.assertNotIn('id="setting-bumpers" type="checkbox" checked', page)
+
     def test_device_file_overrides_config_defaults(self):
         self.config_path.write_text(json.dumps({"startup": {"autoStart": True, "kiosk": False}}), encoding="utf-8")
         self.settings_path.write_text(json.dumps({"autoStart": False, "kiosk": True}), encoding="utf-8")
