@@ -42,6 +42,12 @@ This 800×480 browser preview uses synthetic hourly data; it shows the default v
 
 This isolated 800×480 Chrome preview uses the current Settings markup and styles; it verifies that cloud/local connection options are discoverable, but is not a physical DevPi touchscreen capture.
 
+![Cloud station manager showing reusable Ambient Weather and Weather Underground key profiles](dayglance-station-manager-profiles-20261016.png)
+
+![Cloud station form showing a reusable profile and city association](dayglance-station-manager-sources-20261016.png)
+
+These isolated 800×480 Chrome previews use synthetic profile labels, station IDs, locations, and keys. They demonstrate the cloud-station manager; no real credentials or physical touchscreen are shown.
+
 ![Vertically swipeable settings with a pinned close control](settings-touch-scroll.jpg)
 
 ## Air-quality preview
