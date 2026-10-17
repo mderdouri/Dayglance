@@ -14,11 +14,11 @@ Dayglance provides weather forecasts and archived past-days data through Open-Me
 
 ## Screenshots
 
-![Live Dayglance dashboard on DevPi](docs/screenshots/devpi-air-quality-2026-10-15.png)
+![Dayglance first-launch location setup](docs/screenshots/first-launch.png)
 
 ![Dayglance hourly detail view](docs/screenshots/hourly-details.png)
 
-![Dayglance dashboard showing a severe weather alert banner](docs/screenshots/dayglance-severe-alert-dashboard-20261016.png)
+![Dayglance Settings screen showing the hourly return timer](docs/screenshots/dayglance-hourly-timeout-settings-20261016.png)
 
 [Browse all screenshots](docs/screenshots/README.md), including setup and settings views.
 ## Features
@@ -45,18 +45,16 @@ When updating an existing installation, preserve its `config.json`, `device-sett
 
 ## Example hardware
 
-Dayglance has been exercised on the DevPi touchscreen setup. This is a working example, not a minimum hardware requirement.
+The following is an example target setup, not a minimum hardware requirement.
 
 | Component | Example |
 |---|---|
 | Computer | Raspberry Pi 3 Model B+ |
-| Operating system | Raspberry Pi OS 64-bit (Debian 13.7 Trixie, arm64) |
+| Operating system | Raspberry Pi OS 64-bit |
 | Storage | 16 GB microSD card |
-| Display | DSI touchscreen at 800×480. The [Hosyond 7-inch DSI touchscreen listing](https://www.amazon.com/dp/B0D3QB7X4Z?th=1) supplied for this setup advertises IPS, capacitive touch, and 800×480 resolution. This is a non-affiliate link. |
+| Display | Landscape touchscreen at 800×480 |
 | App runtime | Python 3 standard-library web server and Chromium kiosk browser |
 | Network | Internet access for location search and current forecast data from Open-Meteo |
-
-The fleet inventory records the DevPi panel as 10.1 inches, while the linked product listing describes a 7-inch panel. The deployed resolution and DSI interface match; confirm the display's diagonal/model before using the listing as an exact replacement-parts reference.
 
 ## Quick start
 
@@ -97,3 +95,4 @@ Touchscreen layout and interaction decisions are recorded in [DESIGN_NOTES.md](d
 ## License
 
 Dayglance's original software is released under the [MIT License](LICENSE). That license does not change the separate terms for remote weather or geocoding services and their datasets.
+

@@ -8,7 +8,7 @@ The radar page closes after its configurable idle timeout. The default is one mi
 
 The map uses OpenStreetMap for its background. It needs internet access to load the map, radar metadata, and tiles. If a provider is unavailable, Dayglance reports that and keeps the rest of the forecast app usable. When the display wakes from a screensaver, the app refreshes the radar frames while keeping the radar view open.
 
-The latest radar-control deployment record and a current touchscreen capture are in [DevPi radar update record](../operations/DEVPI_RADAR_CONTROLS_UPDATE_2026-10-15.md). Earlier radar screenshots remain in `../screenshots/` as historical captures.
+The [screenshot gallery](../screenshots/README.md) includes a sample radar settings view.
 
 ![Settings showing the Rainbow account setup and device usage estimate](../screenshots/dayglance-radar-settings-2026-10-15.png)
 
@@ -57,3 +57,4 @@ RainViewer's public Weather Maps API currently offers approximately two hours of
 - [OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/) and [copyright/attribution](https://www.openstreetmap.org/copyright)
 
 These limits and prices are provider-controlled and can change. Recheck the linked official documentation before a public release or paid-tier onboarding. RainViewer's free API terms are not a commercial-use license; anyone distributing or operating Dayglance commercially must confirm both providers' applicable terms independently.
+

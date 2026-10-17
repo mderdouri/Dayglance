@@ -18,7 +18,7 @@ Edit the project-root `config.json`. Set `bindAddress` to the Pi's private LAN i
 
 ```json
 "stationReceiver": {
-  "bindAddress": "192.168.1.50",
+  "bindAddress": "10.23.42.50",
   "port": 8082,
   "path": "/weatherstation/updateweatherstation.php"
 },
@@ -29,7 +29,7 @@ Edit the project-root `config.json`. Set `bindAddress` to the Pi's private LAN i
     "provider": "ambient-weather",
     "connection": "local-upload",
     "enabled": true,
-    "sourceIp": "192.168.1.60",
+    "sourceIp": "10.23.42.60",
     "locationId": null,
     "staleAfterSeconds": 600
   }
@@ -46,7 +46,7 @@ Restart the Dayglance service after changing `stationReceiver` or adding/enablin
 
 In the station's app, open its custom server/custom upload configuration. Field names differ, but enter the values matching your Dayglance config:
 
-- Server: the Pi's private LAN address, such as `192.168.1.50`.
+- Server: the Pi's private LAN address, such as `10.23.42.50` (replace this example with the address on your own LAN).
 - Protocol: HTTP on the local network.
 - Port: `8082` (or the port selected in `config.json`).
 - Path: `/weatherstation/updateweatherstation.php` (or the configured path).
@@ -102,3 +102,4 @@ Do not commit the credentials file, include it in public screenshots/logs, or ba
 - Weather Underground's PWS cloud API is supported separately from the local Weather Underground-compatible upload protocol. It requires an authorized Weather Company API key and station ID; current trial quota is 50,000 requests/day, while paid access limits and charges depend on the account agreement. Confirm the key's PWS access and current terms before enabling it. See the API key, quota, and pricing links in [Configuration](CONFIGURATION.md).
 
 For Weather Underground cloud setup, save a Weather Underground profile under **Provider key profiles**, then add a station under **Add or edit a cloud station** with its PWS station ID, profile, and city. For config-file provisioning, use `provider: "weather-underground"`, `connection: "cloud-api"`, a PWS `stationId`, and a `credentialsId` as shown in [Configuration](CONFIGURATION.md). Dayglance requests one current PWS observation per configured station each minute. A trial key's documented quota is 50,000 requests per day; paid request caps and overage terms vary by account, so verify current provider access and terms before enabling polling.
+

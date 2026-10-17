@@ -113,7 +113,7 @@ class DeviceSettingsConfigTests(unittest.TestCase):
     def test_weather_alert_endpoint_uses_point_api_and_memory_cache(self):
         server._alerts_cache.clear()
         feature = {"id": "https://api.weather.gov/alerts/abc", "properties": {
-            "event": "Severe Thunderstorm Warning", "severity": "Severe", "areaDesc": "District of Columbia",
+            "event": "Severe Thunderstorm Warning", "severity": "Severe", "areaDesc": "Example County",
             "headline": "Severe thunderstorms expected", "description": "Take shelter.", "expires": "2026-10-16T20:00:00Z",
         }, "geometry": {"type": "Polygon", "coordinates": [[[1, 2]]]}}
 
@@ -206,7 +206,7 @@ class DeviceSettingsConfigTests(unittest.TestCase):
                                 "credentialsId": "Home account", "locationId": f"city-{index}", "staleAfterSeconds": 600})
             else:
                 sources.append({"id": f"pws-{index}", "name": f"Station {index}", "provider": "weather-underground",
-                                "connection": "cloud-api", "stationId": f"KDCWASH{index:04d}",
+                                "connection": "cloud-api", "stationId": f"KEXAMPLE{index:04d}",
                                 "credentialsId": "Weather Company", "locationId": f"city-{index}", "staleAfterSeconds": 600})
         status, data = self.request(json.dumps({"integrations": sources}).encode(), path="api/station-settings")
         self.assertEqual(status, 200)
@@ -217,7 +217,7 @@ class DeviceSettingsConfigTests(unittest.TestCase):
 
     def test_station_manager_settings_are_loaded_again_after_restart(self):
         source = {"id": "cloud-home", "name": "Home station", "provider": "weather-underground",
-                  "connection": "cloud-api", "stationId": "KDC123", "credentialsId": "PWS account",
+                  "connection": "cloud-api", "stationId": "KEXAMPLE123", "credentialsId": "PWS account",
                   "locationId": "home", "staleAfterSeconds": 600}
         status, _ = self.request(json.dumps({"integrations": [source]}).encode(), path="api/station-settings")
         self.assertEqual(status, 200)
@@ -228,7 +228,7 @@ class DeviceSettingsConfigTests(unittest.TestCase):
 
     def test_config_defined_station_cannot_become_device_managed(self):
         config_source = {"id": "config-home", "name": "Configured station", "provider": "weather-underground",
-                         "connection": "cloud-api", "enabled": True, "stationId": "KDC123",
+                         "connection": "cloud-api", "enabled": True, "stationId": "KEXAMPLE123",
                          "credentialsId": "PWS account", "locationId": "home", "managed": True}
         self.config_path.write_text(json.dumps({"stationIntegrations": [config_source]}), encoding="utf-8")
         loaded = server.load_station_configuration(managed_override=[])
@@ -251,8 +251,8 @@ class DeviceSettingsConfigTests(unittest.TestCase):
 
     def test_station_manager_rejects_duplicate_city_and_local_upload(self):
         sources = [
-            {"id": "one", "provider": "weather-underground", "connection": "cloud-api", "stationId": "KDC123", "credentialsId": "wu", "locationId": "same-city"},
-            {"id": "two", "provider": "weather-underground", "connection": "cloud-api", "stationId": "KDC124", "credentialsId": "wu", "locationId": "same-city"},
+            {"id": "one", "provider": "weather-underground", "connection": "cloud-api", "stationId": "KEXAMPLE123", "credentialsId": "wu", "locationId": "same-city"},
+            {"id": "two", "provider": "weather-underground", "connection": "cloud-api", "stationId": "KEXAMPLE124", "credentialsId": "wu", "locationId": "same-city"},
         ]
         status, _ = self.request(json.dumps({"integrations": sources}).encode(), path="api/station-settings")
         self.assertEqual(status, 400)
@@ -271,7 +271,7 @@ class DeviceSettingsConfigTests(unittest.TestCase):
         profile = {"provider": "weather-underground", "id": "PWS account", "apiKey": "weather-company-key-1234"}
         status, _ = self.request(json.dumps(profile).encode(), path="api/station-credentials")
         self.assertEqual(status, 200)
-        station = {"id": "pws", "name": "PWS", "provider": "weather-underground", "connection": "cloud-api", "stationId": "KDC123", "credentialsId": "PWS account", "locationId": "home"}
+        station = {"id": "pws", "name": "PWS", "provider": "weather-underground", "connection": "cloud-api", "stationId": "KEXAMPLE123", "credentialsId": "PWS account", "locationId": "home"}
         status, _ = self.request(json.dumps({"integrations": [station]}).encode(), path="api/station-settings")
         self.assertEqual(status, 200)
         status, data = self.request(path="api/station-credentials/weather-underground/PWS%20account", method="DELETE")
@@ -450,3 +450,4 @@ class DeviceSettingsConfigTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

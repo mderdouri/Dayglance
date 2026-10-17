@@ -74,10 +74,10 @@ class StationConfigurationTests(unittest.TestCase):
 
     def write_config(self, **overrides):
         config = {
-            "stationReceiver": {"bindAddress": "192.168.1.50", "port": 8082, "path": "/weatherstation/updateweatherstation.php"},
+            "stationReceiver": {"bindAddress": "10.23.42.50", "port": 8082, "path": "/weatherstation/updateweatherstation.php"},
             "stationIntegrations": [{
                 "id": "backyard", "name": "Backyard station", "provider": "ambient-weather",
-                "connection": "local-upload", "enabled": True, "sourceIp": "192.168.1.60",
+                "connection": "local-upload", "enabled": True, "sourceIp": "10.23.42.60",
                 "locationId": "home", "staleAfterSeconds": 600,
             }],
         }
@@ -87,7 +87,7 @@ class StationConfigurationTests(unittest.TestCase):
     def test_valid_local_station_config_loads_without_credentials(self):
         self.write_config()
         result = server.load_station_configuration()
-        self.assertEqual(result["integrations"][0]["sourceIp"], "192.168.1.60")
+        self.assertEqual(result["integrations"][0]["sourceIp"], "10.23.42.60")
         self.assertEqual(result["integrations"][0]["locationId"], "home")
         self.assertNotIn("password", json.dumps(result).lower())
 
@@ -105,8 +105,8 @@ class StationConfigurationTests(unittest.TestCase):
 
     def test_enforces_one_station_per_configured_city(self):
         self.write_config(stationIntegrations=[
-            {"id": "one", "provider": "ambient-weather", "connection": "local-upload", "enabled": True, "sourceIp": "192.168.1.60", "locationId": "home"},
-            {"id": "two", "provider": "ambient-weather", "connection": "local-upload", "enabled": True, "sourceIp": "192.168.1.88", "locationId": "home"},
+            {"id": "one", "provider": "ambient-weather", "connection": "local-upload", "enabled": True, "sourceIp": "10.23.42.60", "locationId": "home"},
+            {"id": "two", "provider": "ambient-weather", "connection": "local-upload", "enabled": True, "sourceIp": "10.23.42.88", "locationId": "home"},
         ])
         with self.assertRaisesRegex(ValueError, "Only one enabled"):
             server.load_station_configuration()
@@ -114,7 +114,7 @@ class StationConfigurationTests(unittest.TestCase):
     def test_supports_station_data_for_more_than_three_cities(self):
         sources = [
             {"id": f"station-{index}", "provider": "ambient-weather", "connection": "local-upload",
-             "enabled": True, "sourceIp": f"192.168.1.{60 + index}", "locationId": f"city-{index}"}
+             "enabled": True, "sourceIp": f"10.23.42.{60 + index}", "locationId": f"city-{index}"}
             for index in range(1, 5)
         ]
         self.write_config(stationIntegrations=sources)
@@ -147,11 +147,11 @@ class StationConfigurationTests(unittest.TestCase):
     def test_valid_weather_underground_cloud_station_uses_station_id(self):
         self.write_config(stationIntegrations=[{
             "id": "wu", "name": "WU station", "provider": "weather-underground",
-            "connection": "cloud-api", "enabled": True, "stationId": "KDCWASHINGTON123",
+            "connection": "cloud-api", "enabled": True, "stationId": "KEXAMPLE123",
             "credentialsId": "weather-company", "locationId": "home", "staleAfterSeconds": 600,
         }])
         result = server.load_station_configuration()
-        self.assertEqual(result["integrations"][0]["stationId"], "KDCWASHINGTON123")
+        self.assertEqual(result["integrations"][0]["stationId"], "KEXAMPLE123")
         self.assertEqual(result["integrations"][0]["provider"], "weather-underground")
 
     def test_weather_underground_station_id_rejects_path_separators(self):
@@ -163,13 +163,13 @@ class StationConfigurationTests(unittest.TestCase):
             server.load_station_configuration()
 
     def test_status_payload_never_exposes_station_source_ip(self):
-        config = {"integrations": [{"id": "backyard", "name": "Backyard", "locationId": None, "provider": "ambient-weather", "connection": "local-upload", "staleAfterSeconds": 600, "sourceIp": "192.168.1.60"}]}
+        config = {"integrations": [{"id": "backyard", "name": "Backyard", "locationId": None, "provider": "ambient-weather", "connection": "local-upload", "staleAfterSeconds": 600, "sourceIp": "10.23.42.60"}]}
         observation = {"tempf": 70.0, "observedAt": time.time(), "receivedAt": time.time()}
         with patch.object(server, "_station_config", config), patch.object(server, "_station_observations", {"backyard": observation}):
             payload = json.dumps(server.station_status_payload())
         self.assertIn("Backyard", payload)
         self.assertIn("tempf", payload)
-        self.assertNotIn("192.168.1.60", payload)
+        self.assertNotIn("10.23.42.60", payload)
 
     def test_cloud_poll_groups_same_account_and_keeps_credentials_out_of_status(self):
         now_ms = int(time.time() * 1000)
@@ -207,7 +207,7 @@ class StationConfigurationTests(unittest.TestCase):
 
     def test_weather_company_poll_normalizes_data_and_never_returns_api_key(self):
         response_payload = {"observations": [{
-            "stationID": "KDCWASHINGTON123", "epoch": int(time.time()), "humidity": 50,
+            "stationID": "KEXAMPLE123", "epoch": int(time.time()), "humidity": 50,
             "winddir": 180, "uv": 1,
             "imperial": {"temp": 69, "windSpeed": 2, "windGust": 3, "pressure": 30.1,
                          "precipRate": 0, "precipTotal": 0, "dewpt": 48},
@@ -223,7 +223,7 @@ class StationConfigurationTests(unittest.TestCase):
 
         config = {"integrations": [{
             "id": "wu", "name": "WU station", "locationId": None, "provider": "weather-underground",
-            "connection": "cloud-api", "staleAfterSeconds": 600, "stationId": "KDCWASHINGTON123",
+            "connection": "cloud-api", "staleAfterSeconds": 600, "stationId": "KEXAMPLE123",
             "credentialsId": "account",
         }]}
         with patch.object(server, "_station_config", config), \
@@ -242,3 +242,4 @@ class StationConfigurationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
