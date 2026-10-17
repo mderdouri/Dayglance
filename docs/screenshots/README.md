@@ -28,6 +28,10 @@ This 800×480 browser preview uses synthetic hourly data; swipe, drag, and scrol
 
 ![Settings showing the hourly view return timer and one-minute default](dayglance-hourly-timeout-settings-20261016.png)
 
+![Settings with Temperature graph period choices ordered from Past 30 days through future forecast periods](dayglance-graph-period-history-first-20261016.png)
+
+This isolated 800×480 browser capture uses synthetic forecast data and an example location.
+
 ![Settings showing available Ambient Weather and Weather Underground connections](dayglance-station-connections-settings-20261016.png)
 
 ![Connections & Alerts settings showing feed status](dayglance-connections-alerts-20261016.png)
