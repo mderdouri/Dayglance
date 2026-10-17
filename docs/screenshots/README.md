@@ -10,9 +10,9 @@ Screenshots in this gallery use synthetic or unconfigured sample data. They show
 
 ![Hourly detail cards with touch-friendly navigation](hourly-details.png)
 
-![Clock cues beside time labels on the main temperature graph and hourly forecast cards](dayglance-hour-context-cues-20261016.png)
+![Clock cues beside 24-hour sunrise and sunset labels, graph times, and UVI on the main view](dayglance-hour-context-cues-20261016.png)
 
-![Clock cues beside time labels in the hourly detail strip](dayglance-hourly-time-context-20261016.png)
+![Tomorrow and its hour on one line in the hourly detail strip](dayglance-hourly-time-context-20261016.png)
 
 This 800×480 preview uses synthetic forecast data and an example location.
 

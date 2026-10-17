@@ -80,8 +80,12 @@ function weatherIcon(type){
 }
 function formatDay(iso,options={weekday:'short'}){return new Intl.DateTimeFormat(undefined,options).format(new Date(`${iso}T12:00:00`))}
 function localHour(iso){const hour=preferences.clockFormat==='system'?'numeric':preferences.clockFormat==='24'?'2-digit':'numeric';return new Intl.DateTimeFormat(undefined,{hour,hourCycle:preferences.clockFormat==='24'?'h23':preferences.clockFormat==='12'?'h12':undefined}).format(new Date(iso))}
+function uses24HourClock(){if(preferences.clockFormat==='24')return true;if(preferences.clockFormat==='12')return false;return !new Intl.DateTimeFormat(undefined,{hour:'numeric'}).formatToParts(new Date()).some(part=>part.type==='dayPeriod')}
+function createClockIcon(className){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class',className);svg.setAttribute('viewBox','0 0 16 16');svg.setAttribute('aria-hidden','true');const face=document.createElementNS('http://www.w3.org/2000/svg','circle');face.setAttribute('cx','8');face.setAttribute('cy','8');face.setAttribute('r','6.1');const hands=document.createElementNS('http://www.w3.org/2000/svg','path');hands.setAttribute('d','M8 4.5V8l2.5 1.6');svg.append(face,hands);return svg}
+function setTimeCondition(id,iso){const node=document.getElementById(id);if(!node)return;node.replaceChildren();if(iso&&uses24HourClock())node.append(createClockIcon('condition-clock'));node.append(document.createTextNode(iso?localHour(iso):'—'))}
 function compass(degrees){return ['N','NE','E','SE','S','SW','W','NW'][Math.round((Number(degrees)||0)/45)%8]}
 function safeNumber(value,decimals=0){return Number.isFinite(Number(value))?Number(value).toFixed(decimals):'—'}
+function formatUVIndex(value){if(value===null||value===undefined||value==='')return'—';const index=safeNumber(value,1);return index==='—'?index:`${index} UVI`}
 function temperatureSuffix(){return preferences.temperatureUnit==='celsius'?'°C':'°F'}
 function forecastInCurrentUnits(cached){
   if(!cached?.data)return null;
@@ -419,11 +423,11 @@ function render(data,location){
   const currentKind=weatherType(current.weather_code,Boolean(current.is_day));
   setPlaceHeading(location);text('today-date',new Intl.DateTimeFormat(undefined,{weekday:'long',month:'long',day:'numeric'}).format(new Date(`${daily.time[0]}T12:00:00`)));
   $('#current-icon').innerHTML=currentKind.icon;text('current-temperature',safeNumber(current.temperature_2m));$('#current-temperature-unit').textContent=temperatureSuffix();text('current-summary',currentKind.label);text('feels-like',`${safeNumber(current.apparent_temperature)}${temperatureSuffix()}`);
-  text('sunrise',daily.sunrise?.[0]?localHour(daily.sunrise[0]):'—');text('sunset',daily.sunset?.[0]?localHour(daily.sunset[0]):'—');
+  setTimeCondition('sunrise',daily.sunrise?.[0]);setTimeCondition('sunset',daily.sunset?.[0]);
   const metric=preferences.measurementSystem==='metric';
   text('wind-label','Wind');text('humidity-label','Humidity');text('pressure-label','Pressure');text('uv-label','UV index');
   text('wind',`${safeNumber(current.wind_speed_10m)} ${metric?'km/h':'mph'} ${compass(current.wind_direction_10m)}`);text('humidity',`${safeNumber(current.relative_humidity_2m)}%`);
-  text('pressure',Number.isFinite(Number(current.pressure_msl))?metric?`${safeNumber(current.pressure_msl)} hPa`:`${(current.pressure_msl*0.029529983).toFixed(2)} inHg`:'—');text('uv',safeNumber(current.uv_index,1));
+  text('pressure',Number.isFinite(Number(current.pressure_msl))?metric?`${safeNumber(current.pressure_msl)} hPa`:`${(current.pressure_msl*0.029529983).toFixed(2)} inHg`:'—');text('uv',formatUVIndex(current.uv_index));
   text('visibility',Number.isFinite(Number(current.visibility))?metric?`${(current.visibility/1000).toFixed(1)} km`:`${(current.visibility/1609.344).toFixed(1)} mi`:'—');
   const localStation=stationForLocation(location.id),stationStatus=$('#station-observation-status');
   stationStatus.hidden=!localStation;
@@ -436,7 +440,7 @@ function render(data,location){
     if(Number.isFinite(Number(observation.windspeedmph))){const speed=Number(observation.windspeedmph)*(metric?1.609344:1);text('wind',`${safeNumber(speed)} ${metric?'km/h':'mph'} ${compass(observation.winddir)}`);text('wind-label','Wind · station')}
     if(Number.isFinite(Number(observation.humidity))){text('humidity',`${safeNumber(observation.humidity)}%`);text('humidity-label','Humidity · station')}
     if(Number.isFinite(Number(observation.baromin))){const pressure=Number(observation.baromin)*(metric?33.8638867:1);text('pressure',metric?`${safeNumber(pressure)} hPa`:`${pressure.toFixed(2)} inHg`);text('pressure-label','Pressure · station')}
-    if(Number.isFinite(Number(observation.uv))){text('uv',safeNumber(observation.uv,1));text('uv-label','UV · station')}
+    if(Number.isFinite(Number(observation.uv))){text('uv',formatUVIndex(observation.uv));text('uv-label','UV · station')}
   }
   const air=window.DayglanceAirQuality.formatAirQuality(data.airQuality);
   text('air-quality-value',air.value);text('air-quality-pm',air.pm25);
@@ -526,7 +530,7 @@ function showDetails(dayIndex){
   const data=currentForecast,day=data.daily.time[dayIndex],daily=data.daily,hourly=data.hourly,kind=weatherType(daily.weather_code[dayIndex]);
   text('details-date',dayIndex===0?'Today':formatDay(day,{weekday:'long',month:'long',day:'numeric'}));
   text('details-summary',`${kind.label} · High ${Math.round(daily.temperature_2m_max[dayIndex])}${temperatureSuffix()} · Low ${Math.round(daily.temperature_2m_min[dayIndex])}${temperatureSuffix()} · Rain chance ${safeNumber(daily.precipitation_probability_max[dayIndex])}%`);
-  text('details-daylight',`Sunrise ${localHour(daily.sunrise[dayIndex])} · Sunset ${localHour(daily.sunset[dayIndex])} · UV ${safeNumber(daily.uv_index_max[dayIndex],1)}`);
+  text('details-daylight',`Sunrise ${localHour(daily.sunrise[dayIndex])} · Sunset ${localHour(daily.sunset[dayIndex])} · UV ${formatUVIndex(daily.uv_index_max[dayIndex])}`);
   const currentHour=data.current.time.slice(0,13);
   const windowRange=hourlyWindow.getHourlyWindow(hourly.time,day,dayIndex===0,currentHour);
   if(!windowRange)return;
@@ -534,7 +538,8 @@ function showDetails(dayIndex){
   const list=$('#hourly-list');list.replaceChildren();
   hourly.time.slice(start,end).forEach((time,index)=>{
     const i=start+index,weather=weatherType(hourly.weather_code[i],true),card=document.createElement('div');card.className='hour-card';
-    const includesTomorrow=time.slice(0,10)!==day,hourLabel=includesTomorrow?`<span class="hour-label-part">Tomorrow</span><span class="hour-label-part">${localHour(time)}</span>`:dayIndex===0&&time.slice(0,13)===currentHour?'Now':localHour(time);
+    const includesTomorrow=time.slice(0,10)!==day,hourLabel=includesTomorrow?`<span class="hour-label-part">Tomorrow</span> <span class="hour-label-part">${localHour(time)}</span>`:dayIndex===0&&time.slice(0,13)===currentHour?'Now':localHour(time);
+    if(includesTomorrow)card.classList.add('hour-card-tomorrow');
     card.innerHTML=`<span class="hour-time"><svg class="hour-clock" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.1"/><path d="M8 4.5V8l2.5 1.6"/></svg><span class="hour-label">${hourLabel}</span></span><span class="hour-icon" aria-hidden="true">${weather.icon}</span><span class="hour-temp">${Math.round(hourly.temperature_2m[i])}${temperatureSuffix()}</span><span class="hour-rain">Rain ${safeNumber(hourly.precipitation_probability[i])}%</span>`;list.append(card);
   });
   text('hourly-hint',dayIndex===0?(includesTomorrow?'Starts at the current hour and includes a few early hours tomorrow.':'Starts at the current hour; swipe or drag to see the rest of today.'):'Starts at 8 AM; swipe or drag to explore the full day.');
@@ -571,6 +576,8 @@ function detailScrollActivity(){
 function closeDetails(){
   clearInterval(countdownTimer);clearTimeout(detailTimer);clearTimeout(detailScrollTimer);detailScrollTimer=null;detailPointers.clear();
   const list=$('#hourly-list');list.scrollTo({left:list.scrollLeft,behavior:'instant'});
+  const focusedCard=document.activeElement;
+  if(focusedCard?.classList.contains('day-card')&&!focusedCard.matches(':focus-visible'))focusedCard.blur();
   details.hidden=true;
   scheduleAutoScroll();
 }

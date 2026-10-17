@@ -178,6 +178,33 @@ class DeviceSettingsConfigTests(unittest.TestCase):
         self.assertIn(".trend-clock-face{", styles)
         self.assertIn(".hourly-navigation .hour-label{", styles)
 
+    def test_sunrise_and_sunset_show_clock_cues_for_24_hour_format(self):
+        app_script = (PROJECT_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn("function uses24HourClock()", app_script)
+        self.assertIn("setTimeCondition('sunrise',daily.sunrise?.[0])", app_script)
+        self.assertIn("setTimeCondition('sunset',daily.sunset?.[0])", app_script)
+        self.assertIn("createClockIcon('condition-clock')", app_script)
+        styles = (PROJECT_ROOT / "styles.css").read_text(encoding="utf-8")
+        self.assertIn(".condition-clock{", styles)
+
+    def test_tomorrow_hour_label_stays_on_one_line_and_hover_does_not_look_selected(self):
+        app_script = (PROJECT_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn("card.classList.add('hour-card-tomorrow')", app_script)
+        self.assertIn('</span> <span class="hour-label-part">${localHour(time)}</span>', app_script)
+        styles = (PROJECT_ROOT / "styles.css").read_text(encoding="utf-8")
+        self.assertIn(".hourly-navigation .hour-label-part{display:inline;white-space:nowrap}", styles)
+        self.assertIn(".hourly-navigation .hour-card-tomorrow{flex-basis:136px}", styles)
+        self.assertIn("@media(hover:hover){.day-card:hover{border-color:#9ec8d2}}", styles)
+        self.assertIn(".day-card:focus-visible{background:#e1f0f2;", styles)
+        self.assertIn("if(focusedCard?.classList.contains('day-card')&&!focusedCard.matches(':focus-visible'))focusedCard.blur()", app_script)
+
+    def test_uv_values_use_uvi_not_lux(self):
+        app_script = (PROJECT_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn("function formatUVIndex(value)", app_script)
+        self.assertIn("`${index} UVI`", app_script)
+        self.assertIn("formatUVIndex(current.uv_index)", app_script)
+        self.assertIn("formatUVIndex(daily.uv_index_max[dayIndex])", app_script)
+
     def test_temperature_graph_period_options_are_ordered_chronologically(self):
         with urlopen(self.base + "index.html", timeout=3) as response:
             page = response.read().decode("utf-8")
