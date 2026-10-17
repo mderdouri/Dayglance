@@ -19,6 +19,8 @@ These instructions apply to AI agents working in this repository. Follow the use
 - Do not block the operating system's screensaver or display sleep. On resume, refresh stale weather while preserving the current app view.
 - Keep user settings in the documented configuration flow. Validate input and render untrusted text safely.
 - Never put API keys, passwords, tokens, or private user location records in tracked files, screenshots, or logs. The served `config.json` must contain no secrets.
+- Treat public pull request text and commit summaries as project artifacts too. Use synthetic examples only; never publish a user's private IP range, hostname, account name in a machine path, station identifier, postal code/city, hardware purchase link, device-specific service name, configuration fingerprint, rollback path, or live device screenshot. Keep deployment run logs private. Review screenshots for readable text and metadata before publishing them.
+- Use generic, clearly synthetic values in examples and tests; do not copy values from a user's live configuration or network. For station examples, use a separate lab-only private subnet and a clearly fake station ID.
 - Preserve Open-Meteo and other data-source attribution and applicable terms.
 
 ## Verification and documentation
@@ -39,7 +41,7 @@ These instructions apply to AI agents working in this repository. Follow the use
 ## Repository layout
 
 - Keep the runtime files, `config.json`, and `manifest.webmanifest` at the repository root; the lightweight server serves these paths directly.
-- Keep user guides in `docs/guides/`, project standards and design notes in `docs/project/`, deployment records in `docs/operations/`, and contributor guidance at `docs/CONTRIBUTING.md`.
+- Keep user guides in `docs/guides/`, project standards and design notes in `docs/project/`, and contributor guidance at `docs/CONTRIBUTING.md`. Keep private deployment run records outside the public repository; public operations guidance must be generic and reusable.
 - Store every screenshot in `docs/screenshots/`. Do not leave duplicate image files in the repository root or create another screenshot folder.
 - Keep the README as a concise landing page with no more than three embedded screenshots. Link the screenshot gallery for the rest; keep explanatory notes with the gallery or relevant documentation instead of between front-page images.
-- Put new dated device run records in `docs/operations/` and update existing links when files move.
+

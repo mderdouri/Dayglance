@@ -15,10 +15,11 @@
       "name": "Office PWS",
       "provider": "weather-underground",
       "connection": "cloud-api",
-      "stationId": "KDCWASHINGTON123",
+      "stationId": "KEXAMPLE123",
       "credentialsId": "weather-company-account",
       "locationId": "office",
       "staleAfterSeconds": 600
     }
   ]
 }
+

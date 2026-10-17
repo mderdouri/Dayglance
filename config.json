@@ -44,15 +44,15 @@
       "meaning": "Each saved city may use at most one optional current-observation source. Integrations are separate from the forecast provider. Supported connections are Ambient Weather local-upload/cloud-api and Weather Underground cloud-api. Settings assigns each configured source to one saved city.",
       "connection": "For local-upload, send Ambient Weather-native or Weather Underground-compatible uploads to stationReceiver. Ambient cloud-api reads the latest data from Ambient Weather's REST API; Weather Underground cloud-api reads the latest PWS observation from The Weather Company API. Both cloud adapters use device-local credentials and all connections leave the forecast source unchanged.",
       "validInputs": "Each enabled entry needs a unique id and staleAfterSeconds from 30 to 3600. Ambient local-upload needs provider ambient-weather, connection local-upload, and private IPv4 sourceIp. Ambient cloud-api needs provider ambient-weather, connection cloud-api, a 12-digit hexadecimal deviceId, and credentialsId. Weather Underground cloud-api needs provider weather-underground, connection cloud-api, stationId, and credentialsId. Credentials live in device-station-credentials.json, never in config.json. locationId may be null; associate the city in Settings.",
-      "localExample": {"id":"backyard","name":"Backyard station","provider":"ambient-weather","connection":"local-upload","enabled":true,"sourceIp":"192.168.1.60","locationId":null,"staleAfterSeconds":600},
+      "localExample": {"id":"backyard","name":"Backyard station","provider":"ambient-weather","connection":"local-upload","enabled":true,"sourceIp":"10.23.42.60","locationId":null,"staleAfterSeconds":600},
       "cloudExample": {"id":"cloud-backyard","name":"Backyard cloud station","provider":"ambient-weather","connection":"cloud-api","enabled":true,"deviceId":"00:11:22:33:44:55","credentialsId":"home-account","locationId":null,"staleAfterSeconds":600},
-      "weatherUndergroundExample": {"id":"wu-backyard","name":"Backyard WU station","provider":"weather-underground","connection":"cloud-api","enabled":true,"stationId":"KDCWASHINGTON123","credentialsId":"weather-company-account","locationId":null,"staleAfterSeconds":600},
+      "weatherUndergroundExample": {"id":"wu-backyard","name":"Backyard WU station","provider":"weather-underground","connection":"cloud-api","enabled":true,"stationId":"KEXAMPLE123","credentialsId":"weather-company-account","locationId":null,"staleAfterSeconds":600},
       "limits": "Local upload requires a DHCP reservation/static private IP and a LAN-only listener; never forward its port publicly. Ambient cloud polling makes one request per configured account per minute, below its published request rate. Weather Underground PWS cloud access requires an authorized Weather Company API key; trial quotas and paid limits depend on current provider terms. Samples are not archived and clear from memory on a service restart."
     },
     "stationReceiver": {
       "meaning": "Network listener shared by enabled local station integrations. It accepts only the configured upload path and allowlisted private source IPs.",
       "validInputs": "bindAddress must be the Pi's specific private IPv4 address (not 0.0.0.0 or loopback); port must be 1024-65535. Keep the default path unless the station upload form requires another one.",
-      "example": {"bindAddress":"192.168.1.50","port":8082,"path":"/weatherstation/updateweatherstation.php"},
+      "example": {"bindAddress":"10.23.42.50","port":8082,"path":"/weatherstation/updateweatherstation.php"},
       "restart": "After changing stationReceiver or adding/enabling an integration in config.json, restart the Dayglance service. The browser Settings association applies immediately without a restart."
     }
   },
@@ -83,3 +83,4 @@
   },
   "stationIntegrations": []
 }
+
