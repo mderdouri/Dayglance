@@ -52,7 +52,7 @@ Edit or copy `config.json` into the project root before starting Dayglance. Its 
     "kiosk": true
   },
   "stationReceiver": {
-    "bindAddress": "192.168.1.50",
+    "bindAddress": "10.23.42.50",
     "port": 8082,
     "path": "/weatherstation/updateweatherstation.php"
   },
@@ -63,7 +63,7 @@ Edit or copy `config.json` into the project root before starting Dayglance. Its 
       "provider": "ambient-weather",
       "connection": "local-upload",
       "enabled": true,
-      "sourceIp": "192.168.1.60",
+      "sourceIp": "10.23.42.60",
       "locationId": null,
       "staleAfterSeconds": 600
     }
@@ -181,7 +181,7 @@ Example Weather Underground source:
   "provider": "weather-underground",
   "connection": "cloud-api",
   "enabled": true,
-  "stationId": "KDCWASHINGTON123",
+  "stationId": "KEXAMPLE123",
   "credentialsId": "weather-company-account",
   "locationId": null,
   "staleAfterSeconds": 600
@@ -229,3 +229,4 @@ Use the gear button beside refresh to edit the default location, add or remove a
 The hourly view return timer and precipitation-map idle timeout are both adjustable immediately in Settings and can be preconfigured in `config.json`. The hourly timer defaults to one minute and supports 15 seconds through 5 minutes, or can be set to stay open until closed. The precipitation-map timer defaults to one minute and supports 15 seconds, 30 seconds, 1 minute, or 5 minutes. A local 800×480 settings preview is shown below.
 
 ![Dayglance settings at 800×480, showing the hourly view return timer set to one minute](../screenshots/dayglance-hourly-timeout-settings-20261016.png)
+
