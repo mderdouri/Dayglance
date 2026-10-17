@@ -3,6 +3,7 @@
 import io
 import json
 import os
+import re
 import sys
 import tempfile
 import threading
@@ -176,6 +177,19 @@ class DeviceSettingsConfigTests(unittest.TestCase):
         styles = (PROJECT_ROOT / "styles.css").read_text(encoding="utf-8")
         self.assertIn(".trend-clock-face{", styles)
         self.assertIn(".hourly-navigation .hour-label{", styles)
+
+    def test_temperature_graph_period_options_are_ordered_chronologically(self):
+        with urlopen(self.base + "index.html", timeout=3) as response:
+            page = response.read().decode("utf-8")
+        select = re.search(r'<select id="setting-graph-range">(.*?)</select>', page, re.DOTALL)
+        self.assertIsNotNone(select)
+        options = re.findall(r'<option value="([^"]+)">([^<]+)</option>', select.group(1))
+        self.assertEqual(options, [
+            ("history30", "Past 30 days"),
+            ("day", "Next 24 hours"),
+            ("week", "7-day forecast"),
+            ("forecast16", "16-day outlook"),
+        ])
 
     def test_station_provider_options_are_visible_in_settings_page(self):
         with urlopen(self.base + "index.html", timeout=3) as response:

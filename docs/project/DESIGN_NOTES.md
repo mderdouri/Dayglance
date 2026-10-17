@@ -30,6 +30,8 @@ The settings screen scrolls vertically by swiping over its content. It does not 
 
 Keep the Connections & Alerts entry first and full width so its status summary is easy to see. Follow it with the full-width Locations section, then pair Weather & Display with Startup & Screen and Location Rotation with Hourly Detail Controls. On narrow screens, let the cards stack in that same order.
 
+Order Temperature graph period choices chronologically: past 30 days first, followed by the next 24 hours, 7-day forecast, and 16-day outlook.
+
 ## Hourly detail positioning
 
 Today's hourly view begins at the current local hour and omits earlier hours. If six or fewer hours remain, show up to four hours from tomorrow after today's forecast. Other days begin centered on 8 a.m.; the full day remains reachable back to midnight and forward to 11 p.m. Reset the scroll position for every selected day.
