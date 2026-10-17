@@ -143,16 +143,16 @@
           </header>
           <p class="settings-help settings-config-note">Swipe up or down across settings to see every option. The close button stays at the top while you scroll. For keyboard-free setup, edit config.json to preconfigure locations, display settings, and Pi startup. It lists valid values and examples. Browser-saved settings and Pi-local startup overrides take priority.</p>
           <div class="settings-grid">
+            <button class="settings-section settings-nav-card" id="settings-open-connections" type="button">
+              <span class="settings-nav-heading"><span class="status-dot status-dot-neutral" id="connection-summary-dot" aria-hidden="true"></span><strong>Connections &amp; Alerts</strong><span class="settings-nav-arrow" aria-hidden="true">›</span></span>
+              <small id="connection-summary">Weather stations, radar services, and severe weather alerts</small>
+            </button>
             <section class="settings-section location-settings">
               <h2>Locations</h2>
               <div class="default-location-row"><div><span class="settings-label">Default location</span><strong id="settings-default-name">—</strong></div><button class="small-action" id="settings-edit-default" type="button">Edit</button></div>
               <div id="settings-locations" class="settings-location-list"></div>
               <button class="small-action add-setting-location" id="settings-add-location" type="button">＋ Add a location</button>
             </section>
-            <button class="settings-section settings-nav-card" id="settings-open-connections" type="button">
-              <span class="settings-nav-heading"><span class="status-dot status-dot-neutral" id="connection-summary-dot" aria-hidden="true"></span><strong>Connections &amp; Alerts</strong><span class="settings-nav-arrow" aria-hidden="true">›</span></span>
-              <small id="connection-summary">Weather stations, radar services, and severe weather alerts</small>
-            </button>
             <section class="settings-section station-settings" id="station-settings">
               <h2>Local Weather Stations</h2>
               <p class="settings-help">Connect one station to a saved city. Cloud profiles can be reused by multiple stations; keys stay on this Pi and are never shown again after saving. Cloud changes apply live. Config-defined sources are labeled “From config.json.” Local uploads are still configured through <code>config.json</code> and need a service restart.</p>
