@@ -52,7 +52,7 @@ Edit or copy `config.json` into the project root before starting Dayglance. Its 
     "kiosk": true
   },
   "stationReceiver": {
-    "bindAddress": "10.23.42.50",
+    "bindAddress": "10.254.254.50",
     "port": 8082,
     "path": "/weatherstation/updateweatherstation.php"
   },
@@ -63,7 +63,7 @@ Edit or copy `config.json` into the project root before starting Dayglance. Its 
       "provider": "ambient-weather",
       "connection": "local-upload",
       "enabled": true,
-      "sourceIp": "10.23.42.60",
+      "sourceIp": "10.254.254.60",
       "locationId": null,
       "staleAfterSeconds": 600
     }
@@ -96,7 +96,7 @@ Preference values are:
 
 ## Severe weather alerts
 
-Dayglance uses the free [National Weather Service active alerts API](https://www.weather.gov/documentation/services-web-alerts) for U.S. locations. It checks the currently displayed city every five minutes, keeps results in memory, and shows an alert banner on that city's dashboard when an alert meets the configured severity. Tap the banner for the alert headline, area, urgency, effective/expiration times, description, and instructions. Manage the feature in **Settings → Connections & Alerts → Severe Weather Alerts** or set `preferences.alertsEnabled` and `preferences.alertMinimumSeverity` in `config.json`. No API key or service restart is needed. Locations outside the U.S. show an unsupported status. Dayglance is a display-only supplement, not an emergency alert system or push notification service; keep official alerts enabled on your phone or NOAA Weather Radio.
+Dayglance uses the free [National Weather Service active alerts API](https://www.weather.gov/documentation/services-web-alerts) for U.S. locations. It checks the currently displayed city every five minutes, keeps results in memory, and shows an alert banner on that city's dashboard when an alert meets the configured severity. Tap the banner for the alert headline, area, urgency, effective/expiration times, description, and instructions. A newly received alert visible under the selected severity filter briefly wakes a supported idle display, opens its details, and restarts the normal inactivity countdown. Alerts without severity metadata remain visible and can also wake the display. Repeated updates to the same alert do not wake the display again. This works with Linux X11 screensavers and Wayland sessions managed by a running `swayidle` user service; other display managers may not support programmatic wake. Manage the feature in **Settings → Connections & Alerts → Severe Weather Alerts** or set `preferences.alertsEnabled` and `preferences.alertMinimumSeverity` in `config.json`. No API key or service restart is needed. Locations outside the U.S. show an unsupported status. Dayglance is a display-only supplement, not an emergency alert system or push notification service; keep official alerts enabled on your phone or NOAA Weather Radio.
 
 ### Future international alert coverage
 

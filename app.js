@@ -5,6 +5,7 @@ const GEOCODE_API = 'https://geocoding-api.open-meteo.com/v1/search';
 const AIR_QUALITY_API = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 const FALLBACK_CONFIG = {defaultLocation:null,locations:[]};
 const hourlyWindow = window.DayglanceHourlyWindow;
+const alertWake = window.DayglanceAlertWake;
 const DEFAULT_PREFERENCES = {returnAfterSeconds:60,radarIdleTimeoutSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,showBumpers:false,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30,alertsEnabled:true,alertMinimumSeverity:'moderate'};
 const $ = selector => document.querySelector(selector);
 const setup = $('#setup');
@@ -45,6 +46,9 @@ let stationRefreshTimer;
 let touchStart = null;
 let lastResumeRefresh = 0;
 let weatherAlertsByLocation = {};
+const notifiedAlertIds = new Set();
+const alertWakeInFlight = new Set();
+const surfacedAlertIds = new Set();
 let alertRefreshTimer;
 let alertRequestSequence = 0;
 let settingsHomeScrollTop = 0;
@@ -349,6 +353,26 @@ function renderWeatherAlertBanner(location,record){
   banner.classList.toggle('alerts-banner-moderate',!['extreme','severe'].includes(String(properties.severity).toLowerCase()));
   banner.setAttribute('aria-label',`${properties.severity||'Weather'} ${properties.event||'alert'} for ${location.name}. Open alert details.`);
 }
+function wakeDisplayForNewAlerts(location,record){
+  const newIds=alertWake.markForCurrentLocation(location.id,locations[currentIndex]?.id,record,filteredWeatherAlerts(record?.features||[]),notifiedAlertIds,!document.hidden);
+  if(!newIds.length||newIds.some(id=>alertWakeInFlight.has(id)))return;
+  const shouldSurface=newIds.some(id=>!surfacedAlertIds.has(id));
+  if(shouldSurface&&locations[currentIndex]?.id===location.id&&!document.hidden){
+    newIds.forEach(id=>surfacedAlertIds.add(id));
+    if(!settingsScreen.hidden)settingsScreen.hidden=true;
+    if(!details.hidden)closeDetails();
+    if(!radarScreen.hidden)window.DayglanceRadar.close();
+    if(!alertsScreen.hidden)alertsScreen.hidden=true;
+    dashboard.hidden=false;setup.hidden=true;addPage.hidden=true;showingAddPage=false;
+    renderWeatherAlertBanner(location,record);
+    openWeatherAlerts();
+  }
+  newIds.forEach(id=>alertWakeInFlight.add(id));
+  fetch('./api/display/wake',{method:'POST',headers:{'X-Dayglance-Display-Wake':'1'},cache:'no-store'}).then(response=>{
+    if(!response.ok)throw new Error('Display wake failed');
+    alertWake.markSeen(newIds,notifiedAlertIds);
+  }).catch(()=>{}).finally(()=>newIds.forEach(id=>alertWakeInFlight.delete(id)));
+}
 function scheduleAlertRefresh(){
   clearInterval(alertRefreshTimer);
   alertRefreshTimer=setInterval(()=>{
@@ -366,6 +390,7 @@ async function refreshWeatherAlerts(location,{force=false}={}){
   }
   const cached=weatherAlertsByLocation[location.id];
   if(cached&&!force&&Date.now()-cached.fetchedAt<5*60*1000){
+    wakeDisplayForNewAlerts(location,cached);
     renderWeatherAlertBanner(location,cached);
     const count=filteredWeatherAlerts(cached.features).length;
     setAlertServiceStatus(cached.stale?'amber':'green',cached.stale?'Alert feed delayed · showing the last successful check':`${count?`${count} active alert${count===1?'':'s'}`:'No active alerts'} · checked ${formatAlertTime(cached.checkedAt)}`);
@@ -379,6 +404,7 @@ async function refreshWeatherAlerts(location,{force=false}={}){
     if(!response.ok)throw new Error(data.error||'The alert feed is unavailable.');
     const record={features:Array.isArray(data.features)?data.features:[],checkedAt:data.checkedAt||null,stale:data.stale===true,error:data.error||'',fetchedAt:Date.parse(data.checkedAt)||Date.now()};
     weatherAlertsByLocation[location.id]=record;
+    wakeDisplayForNewAlerts(location,record);
     if(locations[currentIndex]?.id===location.id){
       renderWeatherAlertBanner(location,record);
       const count=filteredWeatherAlerts(record.features).length;

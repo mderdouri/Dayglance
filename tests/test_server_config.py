@@ -80,6 +80,8 @@ class DeviceSettingsConfigTests(unittest.TestCase):
     def request(self, data=None, *, path="api/device-settings", method=None):
         actual_method = method or ("POST" if data is not None else "GET")
         headers = {"Origin": self.base.rstrip("/")} if actual_method != "GET" else {}
+        if path == "api/display/wake":
+            headers["X-Dayglance-Display-Wake"] = "1"
         if data is not None:
             headers["Content-Type"] = "application/json"
         request = Request(self.base + path, data=data, headers=headers, method=actual_method)
@@ -110,6 +112,44 @@ class DeviceSettingsConfigTests(unittest.TestCase):
                 status, payload = self.request(path=f"api/weather-alerts?{query}")
                 self.assertEqual(status, 400)
                 self.assertIn("latitude and longitude", payload["error"])
+
+    def test_display_wake_api_uses_local_display_handler(self):
+        with patch.object(server, "wake_display", return_value=(True, "Display woke and its idle timer restarted.")) as wake:
+            status, payload = self.request(b"", path="api/display/wake", method="POST")
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["woken"])
+        wake.assert_called_once_with()
+
+    def test_display_wake_api_rejects_cross_origin_requests(self):
+        request = Request(self.base + "api/display/wake", data=b"", headers={"Origin": "https://example.invalid"}, method="POST")
+        with patch.object(server, "wake_display") as wake:
+            with self.assertRaises(HTTPError) as error:
+                urlopen(request, timeout=3)
+        error.exception.close()
+        self.assertEqual(error.exception.code, 403)
+        wake.assert_not_called()
+
+    def test_display_wake_api_requires_non_simple_same_origin_header(self):
+        request = Request(self.base + "api/display/wake", data=b"", headers={"Origin": self.base.rstrip("/")}, method="POST")
+        with patch.object(server, "wake_display") as wake:
+            with self.assertRaises(HTTPError) as error:
+                urlopen(request, timeout=3)
+        error.exception.close()
+        self.assertEqual(error.exception.code, 403)
+        wake.assert_not_called()
+
+    def test_display_wake_api_rejects_non_loopback_host_even_from_loopback_client(self):
+        request = Request(
+            self.base + "api/display/wake", data=b"",
+            headers={"Origin": "http://example.invalid:8080", "Host": "example.invalid:8080", "X-Dayglance-Display-Wake": "1"},
+            method="POST",
+        )
+        with patch.object(server, "wake_display") as wake:
+            with self.assertRaises(HTTPError) as error:
+                urlopen(request, timeout=3)
+        error.exception.close()
+        self.assertEqual(error.exception.code, 403)
+        wake.assert_not_called()
 
     def test_weather_alert_endpoint_uses_point_api_and_memory_cache(self):
         server._alerts_cache.clear()
@@ -167,6 +207,12 @@ class DeviceSettingsConfigTests(unittest.TestCase):
             self.assertEqual(response.status, 200)
             self.assertIn("text/javascript", response.headers["Content-Type"])
             self.assertIn("DayglanceAirQuality", response.read().decode("utf-8"))
+
+    def test_weather_alert_helper_is_served_as_javascript(self):
+        with urlopen(self.base + "weather-alerts.js", timeout=3) as response:
+            self.assertEqual(response.status, 200)
+            self.assertIn("text/javascript", response.headers["Content-Type"])
+            self.assertIn("DayglanceAlertWake", response.read().decode("utf-8"))
 
     def test_hour_labels_include_clock_context_on_graph_and_cards(self):
         app_script = (PROJECT_ROOT / "app.js").read_text(encoding="utf-8")
