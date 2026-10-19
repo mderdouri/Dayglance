@@ -14,7 +14,7 @@ Dayglance provides weather forecasts and archived past-days data through Open-Me
 
 ## Screenshots
 
-![Dayglance first-launch location setup](docs/screenshots/first-launch.png)
+![Dayglance main weather dashboard with current conditions, air quality, temperature graph, and seven-day forecast](docs/screenshots/dayglance-hour-context-cues-20261016.png)
 
 ![Dayglance hourly detail view](docs/screenshots/hourly-details.png)
 
