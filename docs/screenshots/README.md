@@ -38,6 +38,12 @@ This isolated 800×480 browser capture uses synthetic forecast data and an examp
 
 This isolated 800×480 preview uses synthetic alert data to demonstrate status layout; it is not a physical-device capture.
 
+## Severe weather alerts
+
+![Severe thunderstorm alert detail screen using synthetic example data](dayglance-severe-weather-alert-sample.png)
+
+This 800×480 preview uses the current alert detail layout with an invented city and county. The alert text is illustrative, not a live warning.
+
 ![Cloud station manager showing reusable provider key profiles](dayglance-station-manager-profiles-20261016.png)
 
 This isolated preview uses synthetic profile labels. Key fields are blank; no real credentials or device-specific information are shown.

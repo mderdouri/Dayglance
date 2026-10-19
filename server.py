@@ -9,6 +9,8 @@ import json
 import math
 import os
 import shlex
+import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -34,11 +36,13 @@ STATION_SETTINGS_PATH = ROOT / "device-station-settings.json"
 CONFIG_PATH = ROOT / "config.json"
 AUTOSTART_PATH = Path.home() / ".config" / "autostart" / "dayglance.desktop"
 STARTUP_SUPPORTED = sys.platform.startswith("linux")
+_display_wake_lock = threading.Lock()
 FILES = {
     "index.html": "text/html; charset=utf-8",
     "app.js": "text/javascript; charset=utf-8",
     "air-quality.js": "text/javascript; charset=utf-8",
     "detail-hours.js": "text/javascript; charset=utf-8",
+    "weather-alerts.js": "text/javascript; charset=utf-8",
     "radar.js": "text/javascript; charset=utf-8",
     "styles.css": "text/css; charset=utf-8",
     "manifest.webmanifest": "application/manifest+json; charset=utf-8",
@@ -688,6 +692,89 @@ def start_station_receiver() -> ThreadingHTTPServer | None:
     return server
 
 
+def wake_display() -> tuple[bool, str]:
+    """Wake the current desktop and restart its supported idle timer once per alert batch."""
+    if not sys.platform.startswith("linux"):
+        return False, "Display wake is supported on Linux desktop sessions only."
+
+    with _display_wake_lock:
+        environment = os.environ.copy()
+        wayland = environment.get("WAYLAND_DISPLAY")
+        if wayland:
+            wlopm = shutil.which("wlopm")
+            systemctl = shutil.which("systemctl")
+            if not wlopm or not systemctl or not environment.get("XDG_RUNTIME_DIR"):
+                return False, "Could not access the Wayland display idle manager."
+            try:
+                listed = subprocess.run(
+                    [wlopm, "--json"], check=True, capture_output=True, text=True, timeout=4, env=environment
+                )
+                outputs = json.loads(listed.stdout)
+                names = [
+                    item["output"]
+                    for item in outputs
+                    if isinstance(item, dict) and isinstance(item.get("output"), str) and item["output"]
+                ]
+                if not names:
+                    return False, "No Wayland display output was found."
+                for name in names:
+                    subprocess.run(
+                        [wlopm, "--on", name], check=True, capture_output=True, text=True, timeout=4, env=environment
+                    )
+                units = subprocess.run(
+                    [systemctl, "--user", "show", "--property=Id,ActiveState,SubState,ExecStart", "--all", "--no-pager", "*.service"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=4,
+                    env=environment,
+                )
+                unit = ""
+                idle_unit = ""
+                active_state = ""
+                sub_state = ""
+                for line in units.stdout.splitlines():
+                    if line.startswith("Id="):
+                        unit = line.removeprefix("Id=")
+                        active_state = ""
+                        sub_state = ""
+                    elif line.startswith("ActiveState="):
+                        active_state = line.removeprefix("ActiveState=")
+                    elif line.startswith("SubState="):
+                        sub_state = line.removeprefix("SubState=")
+                    elif line.startswith("ExecStart=") and "swayidle" in line and unit.endswith(".service") and active_state == "active" and sub_state == "running":
+                        idle_unit = unit
+                        break
+                    elif not line:
+                        unit = ""
+                        active_state = ""
+                        sub_state = ""
+                if idle_unit:
+                    subprocess.run(
+                        [systemctl, "--user", "restart", idle_unit],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=8,
+                        env=environment,
+                    )
+                    return True, "Display woke and its idle timer restarted."
+                return False, "Display woke, but no running swayidle service was found to restart its timer."
+            except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError):
+                return False, "Could not wake the Wayland display or restart its idle timer."
+
+        display = environment.get("DISPLAY")
+        xset = shutil.which("xset")
+        if display and xset:
+            try:
+                subprocess.run([xset, "dpms", "force", "on"], check=True, capture_output=True, text=True, timeout=4, env=environment)
+                subprocess.run([xset, "s", "reset"], check=True, capture_output=True, text=True, timeout=4, env=environment)
+                return True, "Display woke and its idle timer restarted."
+            except (OSError, subprocess.SubprocessError):
+                return False, "Could not wake the X11 display or restart its idle timer."
+        return False, "No supported X11 or Wayland display session was detected."
+
+
 class Handler(BaseHTTPRequestHandler):
     def send_json(self, status: int, data: dict[str, object]) -> None:
         body = json.dumps(data).encode("utf-8")
@@ -779,6 +866,18 @@ class Handler(BaseHTTPRequestHandler):
     def is_local_app_request(self) -> bool:
         origin = self.headers.get("Origin")
         return self.is_local_client() and (not origin or urlsplit(origin).netloc == self.headers.get("Host"))
+
+    def is_local_display_request(self) -> bool:
+        origin = self.headers.get("Origin")
+        if not origin or not self.is_local_app_request():
+            return False
+        origin_host = (urlsplit(origin).hostname or "").lower().rstrip(".")
+        if origin_host == "localhost":
+            return True
+        try:
+            return ipaddress.ip_address(origin_host).is_loopback
+        except ValueError:
+            return False
 
     def radar_provider_guard(self) -> bool:
         if self.is_local_app_request():
@@ -946,6 +1045,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
         requested = unquote(urlsplit(self.path).path).lstrip("/")
+        if requested == "api/display/wake":
+            # The non-simple header makes browsers preflight cross-origin calls;
+            # this server does not grant cross-origin preflight requests.
+            if not self.is_local_display_request() or self.headers.get("X-Dayglance-Display-Wake") != "1":
+                self.send_error(403, "Display wake is restricted to the local Dayglance display")
+                return
+            success, message = wake_display()
+            self.send_json(200 if success else 503, {"woken": success, "message": message})
+            return
         if requested == "api/station-settings":
             self.handle_station_settings()
             return
