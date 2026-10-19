@@ -8,7 +8,7 @@ const source = fs.readFileSync(path.join(__dirname, '..', 'weather-alerts.js'), 
 const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 
 test('offline app shell caches the alert helper with a new cache version', () => {
-  assert.match(serviceWorker, /dayglance-shell-v11/);
+  assert.match(serviceWorker, /dayglance-shell-v12/);
   assert.match(serviceWorker, /'\.\/weather-alerts\.js'/);
 });
 

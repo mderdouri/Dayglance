@@ -1,4 +1,4 @@
-const CACHE = 'dayglance-shell-v11';
+const CACHE = 'dayglance-shell-v12';
 const CORE = ['./', './index.html', './styles.css', './detail-hours.js', './air-quality.js', './radar.js', './weather-alerts.js', './app.js', './manifest.webmanifest', './config.json'];
 const CORE_PATHS = new Set(CORE.map(path => new URL(path, self.registration.scope).pathname));
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting())));
