@@ -21,7 +21,13 @@ class DisplayWakeTests(unittest.TestCase):
             command = " ".join([os.path.basename(args[0]), *args[1:]])
             stdout = {
                 "wlopm --json": json.dumps([{"output": "DSI-TEST", "power-mode": "off"}]),
-                'systemctl --user show --property=Id,ActiveState,SubState,ExecStart --all --no-pager *.service': "Id=example-idle.service\nActiveState=active\nSubState=running\nExecStart={ path=/usr/bin/swayidle ; argv[]=/usr/bin/swayidle -w ; }\n",
+                "systemctl --user list-units --type=service --state=running --no-legend --plain": (
+                    "unrelated.service loaded active running Unrelated service\n"
+                    "stopped-idle.service loaded inactive dead Stopped idle service\n"
+                    "example-idle.service loaded active running Idle service\n"
+                ),
+                "systemctl --user show --property=ExecStart --value unrelated.service": "/usr/bin/unrelated\n",
+                "systemctl --user show --property=ExecStart --value example-idle.service": "/usr/bin/swayidle -w\n",
             }.get(command, "")
             return CompletedProcess(args, 0, stdout, "")
         run.side_effect = result
@@ -31,7 +37,7 @@ class DisplayWakeTests(unittest.TestCase):
         self.assertIn("idle timer restarted", message)
         self.assertEqual(run.call_args_list[0].args[0], ["/usr/bin/wlopm", "--json"])
         self.assertEqual(run.call_args_list[1].args[0], ["/usr/bin/wlopm", "--on", "DSI-TEST"])
-        self.assertEqual(run.call_args_list[-1].args[0], ["/usr/bin/systemctl", "--user", "restart", "example-idle.service"])
+        self.assertEqual(run.call_args_list[-1].args[0], ["/usr/bin/systemctl", "--user", "try-restart", "example-idle.service"])
 
     @patch("server.shutil.which", side_effect=lambda name: f"/usr/bin/{name}")
     @patch("server.subprocess.run")
@@ -62,8 +68,10 @@ class DisplayWakeTests(unittest.TestCase):
     def test_wayland_requires_an_idle_manager_for_a_timer_reset(self, run, _which):
         def result(args, **_kwargs):
             stdout = json.dumps([{"output": "DSI-TEST", "power-mode": "on"}]) if args[-1] == "--json" else ""
-            if "--property=Id,ActiveState,SubState,ExecStart" in args:
-                stdout = "Id=unrelated.service\nActiveState=active\nSubState=running\nExecStart={ path=/usr/bin/unrelated ; argv[]=/usr/bin/unrelated ; }\n"
+            if "list-units" in args:
+                stdout = "unrelated.service loaded active running Unrelated service\n"
+            elif "--value" in args:
+                stdout = "/usr/bin/unrelated\n"
             return CompletedProcess(args, 0, stdout, "")
         run.side_effect = result
         with patch.object(server.sys, "platform", "linux"):
@@ -78,8 +86,10 @@ class DisplayWakeTests(unittest.TestCase):
     def test_wayland_does_not_restart_an_inactive_swayidle_service(self, run, _which):
         def result(args, **_kwargs):
             stdout = json.dumps([{"output": "DSI-TEST", "power-mode": "on"}]) if args[-1] == "--json" else ""
-            if "--property=Id,ActiveState,SubState,ExecStart" in args:
-                stdout = "Id=example-idle.service\nActiveState=inactive\nSubState=dead\nExecStart={ path=/usr/bin/swayidle ; argv[]=/usr/bin/swayidle -w ; }\n"
+            if "list-units" in args:
+                stdout = "unrelated.service loaded active running Unrelated service\n"
+            elif "--value" in args:
+                stdout = "/usr/bin/unrelated\n"
             return CompletedProcess(args, 0, stdout, "")
         run.side_effect = result
         with patch.object(server.sys, "platform", "linux"):

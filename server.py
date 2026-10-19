@@ -722,36 +722,47 @@ def wake_display() -> tuple[bool, str]:
                         [wlopm, "--on", name], check=True, capture_output=True, text=True, timeout=4, env=environment
                     )
                 units = subprocess.run(
-                    [systemctl, "--user", "show", "--property=Id,ActiveState,SubState,ExecStart", "--all", "--no-pager", "*.service"],
+                    [systemctl, "--user", "list-units", "--type=service", "--state=running", "--no-legend", "--plain"],
                     check=True,
                     capture_output=True,
                     text=True,
-                    timeout=4,
+                    timeout=2,
                     env=environment,
                 )
-                unit = ""
                 idle_unit = ""
-                active_state = ""
-                sub_state = ""
+                # `systemctl show` with a wildcard emits properties in grouped
+                # blocks rather than reliably keeping each unit's fields
+                # together. Enumerate running units, then inspect each unit's
+                # ExecStart independently so state cannot be attributed to the
+                # wrong service.
+                deadline = time.monotonic() + 3
                 for line in units.stdout.splitlines():
-                    if line.startswith("Id="):
-                        unit = line.removeprefix("Id=")
-                        active_state = ""
-                        sub_state = ""
-                    elif line.startswith("ActiveState="):
-                        active_state = line.removeprefix("ActiveState=")
-                    elif line.startswith("SubState="):
-                        sub_state = line.removeprefix("SubState=")
-                    elif line.startswith("ExecStart=") and "swayidle" in line and unit.endswith(".service") and active_state == "active" and sub_state == "running":
+                    fields = line.split(maxsplit=4)
+                    if (
+                        len(fields) < 4
+                        or fields[2] != "active"
+                        or fields[3] != "running"
+                        or not fields[0].endswith(".service")
+                    ):
+                        continue
+                    unit = fields[0]
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    command = subprocess.run(
+                        [systemctl, "--user", "show", "--property=ExecStart", "--value", unit],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=min(0.25, remaining),
+                        env=environment,
+                    )
+                    if "swayidle" in command.stdout:
                         idle_unit = unit
                         break
-                    elif not line:
-                        unit = ""
-                        active_state = ""
-                        sub_state = ""
                 if idle_unit:
                     subprocess.run(
-                        [systemctl, "--user", "restart", idle_unit],
+                        [systemctl, "--user", "try-restart", idle_unit],
                         check=True,
                         capture_output=True,
                         text=True,
