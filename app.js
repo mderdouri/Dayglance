@@ -6,7 +6,7 @@ const AIR_QUALITY_API = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 const FALLBACK_CONFIG = {defaultLocation:null,locations:[]};
 const hourlyWindow = window.DayglanceHourlyWindow;
 const alertWake = window.DayglanceAlertWake;
-const DEFAULT_PREFERENCES = {returnAfterSeconds:60,radarIdleTimeoutSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,showBumpers:false,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30,alertsEnabled:true,alertMinimumSeverity:'moderate'};
+const DEFAULT_PREFERENCES = {returnAfterSeconds:60,radarIdleTimeoutSeconds:60,temperatureUnit:'fahrenheit',measurementSystem:'imperial',clockFormat:'system',refreshMinutes:15,colorTheme:'day',showBumpers:false,temperatureGraphRange:'day',autoScrollLocations:false,autoScrollIntervalSeconds:30,alertsEnabled:true,alertMinimumSeverity:'moderate'};
 const $ = selector => document.querySelector(selector);
 const setup = $('#setup');
 const dashboard = $('#dashboard');
@@ -110,6 +110,17 @@ function setLoading(on,message='Loading forecast…'){
 }
 function setStatus(value){text('updated',value)}
 function applyPreferences(){
+  const darkMode=preferences.colorTheme==='dark';
+  document.documentElement.dataset.theme=darkMode?'dark':'day';
+  const themeButton=$('#theme-toggle');
+  themeButton.hidden=locations.length===0;
+  themeButton.textContent=darkMode?'☼':'☾';
+  themeButton.setAttribute('aria-pressed',String(darkMode));
+  const themeAction=darkMode?'Switch to day mode':'Switch to dark mode';
+  themeButton.setAttribute('aria-label',themeAction);
+  themeButton.title=themeAction;
+  const themeColor=document.querySelector('meta[name="theme-color"]');
+  if(themeColor)themeColor.content=darkMode?'#10191d':'#e9f0f1';
   $('#setting-return-time').value=String(preferences.returnAfterSeconds);
   $('#setting-radar-timeout').value=String(preferences.radarIdleTimeoutSeconds);
   $('#setting-temperature').value=preferences.temperatureUnit;
@@ -206,6 +217,7 @@ async function initialize(){
   if(!['imperial','metric'].includes(preferences.measurementSystem))preferences.measurementSystem=DEFAULT_PREFERENCES.measurementSystem;
   if(!['system','12','24'].includes(preferences.clockFormat))preferences.clockFormat=DEFAULT_PREFERENCES.clockFormat;
   if(![15,30,60].includes(Number(preferences.refreshMinutes)))preferences.refreshMinutes=DEFAULT_PREFERENCES.refreshMinutes;else preferences.refreshMinutes=Number(preferences.refreshMinutes);
+  if(!['day','dark'].includes(preferences.colorTheme))preferences.colorTheme=DEFAULT_PREFERENCES.colorTheme;
   if(!['day','week','forecast16','history30'].includes(preferences.temperatureGraphRange))preferences.temperatureGraphRange=DEFAULT_PREFERENCES.temperatureGraphRange;
   preferences.autoScrollLocations=preferences.autoScrollLocations===true;
   if(![30,60,300,900].includes(Number(preferences.autoScrollIntervalSeconds)))preferences.autoScrollIntervalSeconds=DEFAULT_PREFERENCES.autoScrollIntervalSeconds;else preferences.autoScrollIntervalSeconds=Number(preferences.autoScrollIntervalSeconds);
@@ -232,6 +244,7 @@ function rebuildLocations(){
   locations=[...primary,...(saved.defaultLocation?[saved.defaultLocation]:[]),...saved.userLocations.filter(area=>!hidden.has(area.id))];
   $('#refresh').hidden=locations.length===0;
   $('#radar-open').hidden=locations.length===0;
+  $('#theme-toggle').hidden=locations.length===0;
   currentIndex=Math.max(0,Math.min(currentIndex,locations.length-1));
   updateAreaPosition();
 }
@@ -899,6 +912,7 @@ $('#radar-open').addEventListener('click',()=>{
   if(!location)return;
   pauseAutoScroll();window.DayglanceRadar.setIdleTimeout(preferences.radarIdleTimeoutSeconds);window.DayglanceRadar.open(location);
 });
+$('#theme-toggle').addEventListener('click',()=>{preferences.colorTheme=preferences.colorTheme==='dark'?'day':'dark';savePreferences()});
 $('#alerts-banner').addEventListener('click',openWeatherAlerts);
 $('#alerts-close').addEventListener('click',()=>{alertsScreen.hidden=true;scheduleAutoScroll()});
 window.addEventListener('dayglance-radar-close',scheduleAutoScroll);

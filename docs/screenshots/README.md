@@ -2,6 +2,12 @@
 
 Screenshots in this gallery use synthetic or unconfigured sample data. They show the interface without publishing a user's saved location, station identifier, provider credential, or private device details.
 
+## Day and dark appearance
+
+![Dark appearance with the day-mode toggle between Rain Radar and Settings](dayglance-day-dark-modes-800x480.png)
+
+This 800×480 browser preview uses an invented location and synthetic forecast data. The sun button switches back to day mode; the choice is saved in this browser profile.
+
 ## Setup and dashboard interactions
 
 ![First-launch location setup](first-launch.png)

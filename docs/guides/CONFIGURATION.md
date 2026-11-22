@@ -40,6 +40,7 @@ Edit or copy `config.json` into the project root before starting Dayglance. Its 
     "measurementSystem": "imperial",
     "clockFormat": "system",
     "refreshMinutes": 15,
+    "colorTheme": "day",
     "temperatureGraphRange": "day",
     "autoScrollLocations": false,
     "autoScrollIntervalSeconds": 30,
@@ -87,6 +88,7 @@ Preference values are:
 - `measurementSystem`: `imperial` or `metric`.
 - `clockFormat`: `system`, `12`, or `24`.
 - `refreshMinutes`: `15`, `30`, or `60`.
+- `colorTheme`: `day` or `dark`; defaults to `day`. The header toggle changes the appearance immediately and saves the choice in this browser profile. That choice survives app and service-worker upgrades as long as the browser profile/site data is retained. A saved browser choice takes precedence over the value in `config.json`.
 - `temperatureGraphRange`: `day` for the next 24 hours, `week` for a 7-day forecast, `forecast16` for up to 16 forecast days, or `history30` for 30 days of archived past-days data ending today. The history range is not a long-range forecast and is not guaranteed to be station-observed data.
 - `autoScrollLocations`: `true` automatically rotates through saved locations when at least two exist; `false` leaves location changes manual. The rotation loops between saved cities and never opens the add-location page.
 - `autoScrollIntervalSeconds`: `30`, `60`, `300`, or `900` seconds on each location (30 seconds, 1 minute, 5 minutes, or 15 minutes). Used only when auto-scroll is enabled.
@@ -142,7 +144,7 @@ Hourly details for Today begin at the current local hour and hide earlier hours.
 
 `startup.autoStart` enables the desktop login launcher. `startup.kiosk` selects full-screen kiosk mode (`true`) or a maximized browser window (`false`). On a local Linux or Raspberry Pi session, enabling auto-start in Settings installs the desktop login hook automatically and writes per-device overrides to `device-settings.json`; those overrides take precedence over the JSON defaults. On Raspberry Pi OS with labwc, Dayglance adds a marked entry to `~/.config/labwc/autostart`; on other Linux desktops it creates `~/.config/autostart/dayglance.desktop`. Changes apply at the next desktop login or next launcher run. `install-autostart.sh` remains available for manual or keyboard-free setup.
 
-Browser preferences changed in the Settings menu are stored in that browser and take precedence over `config.json`. On a fresh browser profile, the JSON preferences are used directly. To switch an existing browser back to copied JSON defaults, clear Dayglance's saved site data for that browser. Keep this file free of API keys, passwords, and other secrets; the browser downloads it as a public static file.
+Browser preferences changed in the app are stored in that browser and take precedence over `config.json`. This includes the day/dark appearance choice, which remains in place across app and service-worker upgrades when the same browser profile is retained. On a fresh browser profile, the JSON preferences are used directly. To switch an existing browser back to copied JSON defaults, clear Dayglance's saved site data for that browser. Keep this file free of API keys, passwords, and other secrets; the browser downloads it as a public static file.
 
 ## Local weather-station integration
 
@@ -224,7 +226,7 @@ The service worker keeps the app shell for offline startup. It revalidates those
 
 ## Settings menu
 
-Use the gear button beside refresh to edit the default location, add or remove additional locations, and adjust forecast and hourly-view preferences. Swipe or drag the hourly cards directly to explore the forecast; optional left and right buttons can move through the same content. Removing a location loaded from `config.json` hides it only on that device; remove it from the file to remove it from every copy. Startup controls are available when the app is running from its local Python server on the Pi and the desktop auto-start entry has been installed. Startup options apply the next time the Dayglance launcher runs; they do not restart an open display or require a forecast-server restart.
+Use the day/dark button between Rain Radar and Settings to switch the appearance immediately. The selection is stored in this browser profile and requires no service restart. Use the gear button beside refresh to edit the default location, add or remove additional locations, and adjust forecast and hourly-view preferences. Swipe or drag the hourly cards directly to explore the forecast; optional left and right buttons can move through the same content. Removing a location loaded from `config.json` hides it only on that device; remove it from the file to remove it from every copy. Startup controls are available when the app is running from its local Python server on the Pi and the desktop auto-start entry has been installed. Startup options apply the next time the Dayglance launcher runs; they do not restart an open display or require a forecast-server restart.
 
 The hourly view return timer and precipitation-map idle timeout are both adjustable immediately in Settings and can be preconfigured in `config.json`. The hourly timer defaults to one minute and supports 15 seconds through 5 minutes, or can be set to stay open until closed. The precipitation-map timer defaults to one minute and supports 15 seconds, 30 seconds, 1 minute, or 5 minutes. A local 800×480 settings preview is shown below.
 
