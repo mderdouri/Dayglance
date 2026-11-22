@@ -38,6 +38,78 @@
 .settings-screen::-webkit-scrollbar{display:none;width:0;height:0}
 .settings-screen:focus-visible{outline:2px solid #8dbfcb;outline-offset:-3px}
 .settings-heading{position:sticky;top:0;z-index:2;background:#f9fbfa;padding-top:6px;padding-bottom:6px}
+.theme-button{width:34px;padding:0;font-size:17px}
+
+/* Dayglance day/dark appearance. Provider map tiles keep their own map colors. */
+:root[data-theme="dark"]{color-scheme:dark;color:#e7eff1;background:#10191d;--ink:#e7eff1;--muted:#a4b5bb;--line:#36474d;--blue:#273d45;--accent:#83c1cf;--sun:#e5b15a;--card:#202d32}
+:root[data-theme="dark"] body{background:linear-gradient(145deg,#111c20,#172328)}
+:root[data-theme="dark"] .topbar{border-bottom-color:#34464c}
+:root[data-theme="dark"] .brand-mark{background:#263d45;color:#9bd2dc}
+:root[data-theme="dark"] .control-button{background:#202d32;color:#e3edef;border-color:#40545b}
+:root[data-theme="dark"] .control-button:hover,:root[data-theme="dark"] .control-button:focus-visible{background:#30454c;outline-color:#6a9eaa}
+:root[data-theme="dark"] .refresh-button,:root[data-theme="dark"] .radar-button,:root[data-theme="dark"] .settings-button{color:#a6d2dc}
+:root[data-theme="dark"] .current-temperature,:root[data-theme="dark"] .feels-like strong{color:#eaf1f3}
+:root[data-theme="dark"] .current-temperature p,:root[data-theme="dark"] .current-temperature .current-summary,:root[data-theme="dark"] .current-today-button .feels-like{color:#b5c4c9}
+:root[data-theme="dark"] .current-today-button .feels-like strong{color:#eaf1f3}
+:root[data-theme="dark"] .conditions-grid{border-left-color:#34464c}
+:root[data-theme="dark"] .condition-icon,:root[data-theme="dark"] .settings-nav-arrow,:root[data-theme="dark"] .settings-status{color:#8fc5d0}
+:root[data-theme="dark"] .trend-section,:root[data-theme="dark"] .overview{border-color:#34464c}
+:root[data-theme="dark"] .trend-legend{color:#b4c3c8}
+:root[data-theme="dark"] .trend-label,:root[data-theme="dark"] .trend-clock-face{fill:#a9bcc2;stroke:#a9bcc2}
+:root[data-theme="dark"] .day-card{background:#202d32;border-color:#40545b;color:#e7eff1}
+:root[data-theme="dark"] .day-card:hover,:root[data-theme="dark"] .day-card:focus-visible,:root[data-theme="dark"] .day-card:active{background:#2b4148;border-color:#638893}
+:root[data-theme="dark"] .day-card.today{background:#30474e;border-color:#577983}
+:root[data-theme="dark"] .day-condition{color:#c2d0d4}
+:root[data-theme="dark"] .day-temps span,:root[data-theme="dark"] .attribution,:root[data-theme="dark"] .condition-subvalue{color:#a3b4ba}
+:root[data-theme="dark"] .setup-card,:root[data-theme="dark"] .details-card,:root[data-theme="dark"] .alerts-card,:root[data-theme="dark"] .settings-card{background:#1b282d;border-color:#3a4d54;box-shadow:0 18px 55px #0008}
+:root[data-theme="dark"] .setup-copy,:root[data-theme="dark"] .details-heading>div>p:last-child,:root[data-theme="dark"] .alerts-heading>div>p:last-child{color:#aabac0}
+:root[data-theme="dark"] .eyebrow{color:#9fc6ce}
+:root[data-theme="dark"] .search-form input,:root[data-theme="dark"] .search-form select,:root[data-theme="dark"] .setting-row select,:root[data-theme="dark"] .station-form input,:root[data-theme="dark"] .station-form select,:root[data-theme="dark"] .station-integration-row select,:root[data-theme="dark"] .radar-key-entry input{background:#142126;color:#e7eff1;border-color:#465c63}
+:root[data-theme="dark"] .search-form input:focus-visible,:root[data-theme="dark"] .search-form select:focus-visible,:root[data-theme="dark"] .setting-row select:focus-visible,:root[data-theme="dark"] .setting-row input:focus-visible,:root[data-theme="dark"] .station-form input:focus-visible,:root[data-theme="dark"] .station-form select:focus-visible,:root[data-theme="dark"] .station-integration-row select:focus-visible{outline-color:#72aeba}
+:root[data-theme="dark"] .primary-button{background:#367b8c;color:#fff}
+:root[data-theme="dark"] .location-button,:root[data-theme="dark"] .back-button,:root[data-theme="dark"] .close-details,:root[data-theme="dark"] .settings-back{background:#202d32;color:#e7eff1;border-color:#40545b}
+:root[data-theme="dark"] .result-button{background:#1b292e;color:#e7eff1;border-color:#3b4e54}
+:root[data-theme="dark"] .result-button[aria-selected="true"]{background:#2b4249;border-color:#6a9eaa}
+:root[data-theme="dark"] .loading{background:#10191de8;color:#c0d0d5}
+:root[data-theme="dark"] .details,:root[data-theme="dark"] .alerts-screen,:root[data-theme="dark"] .settings-screen,:root[data-theme="dark"] .radar-screen{background:#10191df2}
+:root[data-theme="dark"] .hour-card{background:#1b292e;border-color:#3c5057;color:#e7eff1}
+:root[data-theme="dark"] .countdown-track{background:#33474d}
+:root[data-theme="dark"] .settings-heading{background:#1b282d;border-color:#34464c}
+:root[data-theme="dark"] .settings-section,:root[data-theme="dark"] .station-manager-block{background:#202d32;border-color:#3a4d54}
+:root[data-theme="dark"] .settings-section h2,:root[data-theme="dark"] .settings-nav-heading strong,:root[data-theme="dark"] .station-manager-block h3,:root[data-theme="dark"] .station-option strong{color:#c6e0e5}
+:root[data-theme="dark"] .settings-nav-card:hover,:root[data-theme="dark"] .settings-nav-card:focus-visible,:root[data-theme="dark"] .small-action:hover,:root[data-theme="dark"] .small-action:focus-visible,:root[data-theme="dark"] .edit-location:hover,:root[data-theme="dark"] .edit-location:focus-visible,:root[data-theme="dark"] .add-location-tile:hover,:root[data-theme="dark"] .add-location-tile:focus-visible{background:#2a4148;outline-color:#6a9eaa}
+:root[data-theme="dark"] .status-dot{background:#87999e}
+:root[data-theme="dark"] .status-dot-green{background:#4cb17f}
+:root[data-theme="dark"] .status-dot-amber{background:#e0aa45}
+:root[data-theme="dark"] .status-dot-red{background:#e06c62}
+:root[data-theme="dark"] .status-dot-neutral{background:#87999e}
+:root[data-theme="dark"] .alert-service-status,:root[data-theme="dark"] .provider-status-list,:root[data-theme="dark"] .station-supported-options{background:#24353a;color:#c3d1d5;border-color:#40545b}
+:root[data-theme="dark"] .alerts-banner{background:#493b22;color:#f1dba9;border-color:#806a3d}
+:root[data-theme="dark"] .alerts-banner-copy small,:root[data-theme="dark"] .alert-detail-row strong{color:#d2bd91}
+:root[data-theme="dark"] .alerts-banner-severe,:root[data-theme="dark"] .alert-entry.alert-severity-severe{background:#482b24;color:#f2c4ae;border-color:#80513f}
+:root[data-theme="dark"] .alerts-banner-extreme,:root[data-theme="dark"] .alert-entry.alert-severity-extreme{background:#482728;color:#f2b9b6;border-color:#85494a}
+:root[data-theme="dark"] .alert-entry{background:#332d21;border-color:#6b5831;color:#eee0c0}
+:root[data-theme="dark"] .alert-severity-label{background:#514329;color:#f0d89e}
+:root[data-theme="dark"] .alerts-heading,:root[data-theme="dark"] .alerts-card>.settings-help{border-color:#34464c}
+:root[data-theme="dark"] .edit-location,:root[data-theme="dark"] .small-action,:root[data-theme="dark"] .hour-scroll-button{background:#263a40;color:#b9dce2;border-color:#49626a}
+:root[data-theme="dark"] .remove-location{background:#3c2928;color:#f1b6b0;border-color:#654240}
+:root[data-theme="dark"] .add-location-tile{background:#1e2b30;color:#e7eff1;border-color:#526a72}
+:root[data-theme="dark"] .add-mark{background:#2c464d;color:#a8d9e1}
+:root[data-theme="dark"] .station-supported-heading,:root[data-theme="dark"] .station-option small,:root[data-theme="dark"] .station-form label,:root[data-theme="dark"] .station-reference-note,:root[data-theme="dark"] .station-config-label{color:#afc1c6}
+:root[data-theme="dark"] .station-config-badge{background:#34464b;color:#c2d0d4}
+:root[data-theme="dark"] .station-option{border-bottom-color:#3c5056}
+:root[data-theme="dark"] .station-profile-row,:root[data-theme="dark"] .station-integration-row,:root[data-theme="dark"] .default-location-row,:root[data-theme="dark"] .settings-location-row,:root[data-theme="dark"] .setting-row{border-color:#34464c;color:#c0cdd1}
+:root[data-theme="dark"] .startup-toggle[aria-pressed="true"]{background:#203d31;color:#aee1bf;border-color:#4f8a67}
+:root[data-theme="dark"] .radar-map{background:#203238;border-color:#435b62}
+:root[data-theme="dark"] .radar-mode .small-action[aria-pressed="true"]{background:#31505a;border-color:#6a9eaa}
+:root[data-theme="dark"] .radar-frame-time,:root[data-theme="dark"] .radar-note,:root[data-theme="dark"] .radar-key-label{color:#b6c6cb}
+:root[data-theme="dark"] .radar-usage{background:#243941;color:#c8e0e4}
+:root[data-theme="dark"] .radar-links a{color:#9acbd5}
+:root[data-theme="dark"] .hourly-list::-webkit-scrollbar-thumb{border-color:#10191d}
+:root[data-theme="dark"] .hourly-list::-webkit-scrollbar-track{background:#10191d}
+:root[data-theme="dark"] .weather-svg{fill:#536c73;stroke:#b0c8cd}
+:root[data-theme="dark"] .weather-sun circle,:root[data-theme="dark"] .weather-partly circle,:root[data-theme="dark"] .weather-moon path,:root[data-theme="dark"] .weather-thunder path:last-child{fill:#e9b75e;stroke:#e3a746}
+:root[data-theme="dark"] .weather-sun path,:root[data-theme="dark"] .weather-partly path:first-of-type{stroke:#e3a746}
 .settings-screen.settings-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
 .hour-scroll-button:disabled{opacity:.35;cursor:default;pointer-events:none}.hourly-navigation .hourly-list{overscroll-behavior-x:none}
 .startup-setting-row>span{display:grid;gap:3px}.startup-state{color:#819198;font-size:10px}.startup-toggle{min-width:76px}.startup-toggle[aria-pressed="true"]{border-color:#a9cec0;background:#edf8f1;color:#28704a}.startup-toggle:disabled{opacity:.55;cursor:not-allowed}
